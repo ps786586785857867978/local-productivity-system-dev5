@@ -32,3 +32,16 @@ This is a chronological project record. Entries are append-only.
 - Citation ledger: `docs/research/sources.json`
 - Citation verification: passed in strict mode
 - Next checkpoint: collect the user's real-life task and focus workflow before the Grill session.
+
+## 2026-09-24 14:10 CEST
+
+### Event: personal workflow input collected — Grill round 1
+
+- Status: completed
+- Product reference confirmed: “PomoTimes” means PomoTime.
+- Real-life routines include health/medication, language learning, drawing practice, walking, reading, and self-entered coursework deadlines.
+- Planning preference: combine Today, deadlines, life areas, and priority.
+- Focus preference: visual progress and gentle gamification.
+- Interruption preference: pausing should enter a reassuring “ready to continue” state with a cute existing animation.
+- Asset constraint: do not generate a Wallace & Gromit image; only use a user-supplied or appropriately licensed existing asset. Keep copyrighted personal details out of any future public repository/report unless explicitly approved.
+- Next step: continue the Grill decision tree before writing the final PRD.
