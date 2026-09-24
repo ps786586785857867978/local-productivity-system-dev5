@@ -19,3 +19,16 @@ This is a chronological project record. Entries are append-only.
 - Task-management references: Todoist, Quire, and Evernote.
 - Requirement from user: track project work in both Obsidian and GitHub.
 - Personalization note: the final product must support tasks from the user's real life; personal workflow input will be requested before the Grill session and PRD are finalized.
+
+## 2026-09-24 14:02 CEST
+
+### Event: preliminary product research completed
+
+- Status: completed_pending_user_confirmation
+- Task products reviewed: Todoist, Quire, Evernote
+- Focus products reviewed: Forest, PomoTime, Pomofocus
+- Caveat: confirm whether the user's “PomoTimes” reference meant PomoTime.
+- Research artifact: `docs/research/PRODUCT_RESEARCH.md`
+- Citation ledger: `docs/research/sources.json`
+- Citation verification: passed in strict mode
+- Next checkpoint: collect the user's real-life task and focus workflow before the Grill session.

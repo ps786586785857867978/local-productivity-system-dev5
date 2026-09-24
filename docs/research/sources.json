@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": 1,
+      "url": "https://www.todoist.com/task-management",
+      "title": "",
+      "accessed": "2026-09-24"
+    },
+    {
+      "id": 2,
+      "url": "https://quire.io/features",
+      "title": "",
+      "accessed": "2026-09-24"
+    },
+    {
+      "id": 3,
+      "url": "https://help.evernote.com/hc/en-us/articles/1500003792141-Tasks-Overview",
+      "title": "",
+      "accessed": "2026-09-24"
+    },
+    {
+      "id": 4,
+      "url": "https://www.forestapp.cc",
+      "title": "",
+      "accessed": "2026-09-24"
+    },
+    {
+      "id": 5,
+      "url": "https://play.google.com/store/apps/details?id=pomotime.idealapps.ge",
+      "title": "",
+      "accessed": "2026-09-24"
+    },
+    {
+      "id": 6,
+      "url": "https://pomofocus.io",
+      "title": "",
+      "accessed": "2026-09-24"
+    },
+    {
+      "id": 7,
+      "url": "https://www.reddit.com/r/pomodoro/comments/1vgl5is/i_built_a_pomodoro_timer_thats_baked_into_a",
+      "title": "",
+      "accessed": "2026-09-24"
+    },
+    {
+      "id": 8,
+      "url": "https://www.reddit.com/r/pomodoro/comments/1v3fio2/pomodoro_app_that_tracks_partial_pomodoros",
+      "title": "",
+      "accessed": "2026-09-24"
+    }
+  ]
+}
