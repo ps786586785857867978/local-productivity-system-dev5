@@ -1,8 +1,8 @@
 # Gentleday acceptance and verification record
 
 **Verification date:** 2026-09-27
-**Clean-clone baseline commit:** `e67a2e3b540e040c97031a43a0444a16c90aa44f` (27-test suite)
-**Current staged verification:** 30-test suite plus final documentation and submission artifacts
+**Clean-clone verification commit:** `2e0e0b6feaf2dcd66e9cd4a66f6a6de9efa7243e`
+**Verified suite:** 30 tests plus final documentation and submission artifacts
 **Platform:** macOS on Apple Silicon
 **Result:** Passed
 
@@ -11,12 +11,12 @@
 | Check | Result | Evidence |
 |---|---:|---|
 | Dependency install from lockfile | Pass | `npm ci` completed from a clean clone; 0 vulnerabilities |
-| Unit and storage tests (current staged suite) | Pass | 30 tests across 4 files |
+| Unit and storage tests | Pass | 30 tests across 4 files |
 | Type safety | Pass | `npm run typecheck` |
 | Production build | Pass | `npm run build` |
 | macOS package | Pass | `npm run dist:mac`; `release/mac-arm64/Gentleday.app` created |
 | Source hygiene | Pass | `git diff --check`; independent security review |
-| Clean-clone revision | Pass | Local clean clone matched remote commit `e67a2e3…` |
+| Clean-clone revision | Pass | Local clean clone matched remote commit `2e0e0b6…` |
 
 ## Acceptance matrix
 
@@ -55,7 +55,7 @@
 
 ## Clean-clone procedure and observed result
 
-The private GitHub repository was cloned into a new scratch directory at commit `e67a2e3…`. At that baseline revision, the suite contained 27 tests. The following commands completed successfully:
+The private GitHub repository was cloned into a new scratch directory at commit `2e0e0b6…`. At that revision, the suite contained all 30 final tests and both named submission artifacts. The following commands completed successfully:
 
 ```bash
 npm ci

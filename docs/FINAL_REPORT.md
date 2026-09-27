@@ -119,7 +119,7 @@ The automated suite contains 30 tests across four files. It covers:
 
 The real Electron QA flow created and edited tasks, completed and reopened work, deleted a temporary task, completed one focus session, cancelled another, completed a short break, and inspected the resulting state through the actual preload/main-process boundary.
 
-A clean clone of commit `e67a2e3b540e040c97031a43a0444a16c90aa44f` successfully completed `npm ci`, its then-current 27-test suite, type checking, production build, and macOS packaging. The three additional recovery and settings-persistence tests were added during final evidence review and pass in the current 30-test suite. The clean-clone packaged application was launched with fresh local data and passed the same main workflow. After termination and relaunch, it restored five tasks, three sessions, and 16 queued events.
+A clean clone of final artifact commit `2e0e0b6feaf2dcd66e9cd4a66f6a6de9efa7243e` successfully completed `npm ci`, all 30 tests, type checking, production build, and macOS packaging. The clean-clone packaged application was launched with fresh local data and passed the same main workflow. After a normal application quit and relaunch, it restored five tasks, three sessions, 16 queued events, and no active timer.
 
 Real Obsidian synchronization was also tested using the finished application. The latest verification delivered 16 app-generated events and left zero pending. The original task, focus, and break files remain in the selected vault as evidence.
 

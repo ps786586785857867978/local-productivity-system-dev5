@@ -126,3 +126,15 @@ This is a chronological project record. Entries are append-only.
 - Expanded the README, reconciled the PRD, added acceptance-test evidence, and completed the cited report, AI-use statement, limitations, and reflection.
 - Exported the required nine-page PDF as `submission/Saule_3IXD_Dev5_PRD.PDF` and visually inspected its title, design, and final source pages.
 - Next checkpoint: final documentation review, commit/push, and repository/artifact verification.
+
+## 2026-09-27 23:23 CEST
+
+### Event: final submission verified
+
+- Status: completed
+- Final artifact commit `2e0e0b6feaf2dcd66e9cd4a66f6a6de9efa7243e` was pushed to `origin/main`; local and remote SHAs matched.
+- Two fail-closed final documentation reviews passed after correcting evidence wording and revision attribution.
+- A new clean clone of `2e0e0b6…` passed `npm ci`, all 30 tests, TypeScript checking, production build, and macOS ARM64 packaging.
+- The clean-clone packaged application passed neutral Electron QA with five tasks, three sessions, and 16 queued events.
+- After a normal application quit and relaunch, the same profile restored five tasks, three sessions, 16 queued events, and no active timer.
+- Required files verified: `submission/Saule_3IXD_Dev5_PRD.PDF` and `submission/Saule_Pranculyte_3IXD_Dev5_Obsidiansample.md`.
