@@ -113,3 +113,16 @@ This is a chronological project record. Entries are append-only.
 - Packaged output: `release/mac-arm64/Gentleday.app`.
 - App-generated vault synchronization: 16 events delivered with 0 pending after the latest QA run.
 - Remaining submission work: clean-clone verification, README/report completion, named Obsidian sample, PDF export, and final artifact check.
+
+## 2026-09-27 22:56 CEST
+
+### Event: final evidence and submission artifacts prepared
+
+- Status: completed_pending_final_commit
+- Pushed verified implementation commit `e67a2e3b540e040c97031a43a0444a16c90aa44f` to GitHub and recorded the milestone on issue #1.
+- Verified a clean clone with `npm ci`, 27 tests, TypeScript checking, production build, macOS ARM64 packaging, packaged Electron QA, and relaunch persistence.
+- Generated a privacy-safe Obsidian evidence set through the finished packaged application: 16 task, focus, and break events delivered with 0 pending.
+- Created the required Markdown sample as `submission/Saule_Pranculyte_3IXD_Dev5_Obsidiansample.md`.
+- Expanded the README, reconciled the PRD, added acceptance-test evidence, and completed the cited report, AI-use statement, limitations, and reflection.
+- Exported the required nine-page PDF as `submission/Saule_3IXD_Dev5_PRD.PDF` and visually inspected its title, design, and final source pages.
+- Next checkpoint: final documentation review, commit/push, and repository/artifact verification.

@@ -1,4 +1,27 @@
 const endpoint = process.env.GENTLEDAY_CDP ?? 'http://127.0.0.1:9222'
+const taskNames = process.env.QA_PROFILE === 'neutral'
+  ? {
+      first: 'Review Dev 5 report',
+      firstArea: 'Coursework',
+      second: 'Organize research notes',
+      secondArea: 'Learning',
+      third: 'Refine the acceptance checklist',
+      thirdArea: 'Coursework',
+      fourth: 'Sketch the dashboard layout',
+      fourthArea: 'Creative',
+      editedFourth: 'Sketch the dashboard layout (paper study)'
+    }
+  : {
+      first: 'Take morning medication',
+      firstArea: 'Health',
+      second: 'Take zinc, magnesium, and vitamin D',
+      secondArea: 'Health',
+      third: '30 minutes of Mandarin lessons',
+      thirdArea: 'Learning',
+      fourth: '20 minutes of drawing practice',
+      fourthArea: 'Creative',
+      editedFourth: '20 minutes of drawing practice (sketchbook)'
+    }
 const targets = await fetch(`${endpoint}/json/list`).then(response => response.json())
 const target = targets.find(item => item.type === 'page' && (
   item.title.includes('Gentleday') || item.url.includes('localhost:5173')
@@ -129,35 +152,35 @@ if (process.env.RESET_STATE === '1') {
   await evaluate('location.reload()')
   await waitFor("Boolean(window.gentleday && document.querySelector('.app-shell'))")
 }
-await createTask('Take morning medication', 'Health')
-await createTask('Take zinc, magnesium, and vitamin D', 'Health')
-await createTask('30 minutes of Mandarin lessons', 'Learning')
-await createTask('20 minutes of drawing practice', 'Creative')
+await createTask(taskNames.first, taskNames.firstArea)
+await createTask(taskNames.second, taskNames.secondArea)
+await createTask(taskNames.third, taskNames.thirdArea)
+await createTask(taskNames.fourth, taskNames.fourthArea)
 
 await evaluate(`(() => {
-  const button = document.querySelector('button[aria-label="Complete Take morning medication"]');
+  const button = document.querySelector(${JSON.stringify(`button[aria-label="Complete ${taskNames.first}"]`)});
   button.click();
 })()`)
-await waitFor("Boolean(document.querySelector('button[aria-label=\"Reopen Take morning medication\"]'))")
-await evaluate("document.querySelector('button[aria-label=\"Reopen Take morning medication\"]').click()")
-await waitFor("Boolean(document.querySelector('button[aria-label=\"Complete Take morning medication\"]'))")
-await evaluate("document.querySelector('button[aria-label=\"Complete Take morning medication\"]').click()")
+await waitFor(`Boolean(document.querySelector(${JSON.stringify(`button[aria-label="Reopen ${taskNames.first}"]`)}))`)
+await evaluate(`document.querySelector(${JSON.stringify(`button[aria-label="Reopen ${taskNames.first}"]`)}).click()`)
+await waitFor(`Boolean(document.querySelector(${JSON.stringify(`button[aria-label="Complete ${taskNames.first}"]`)}))`)
+await evaluate(`document.querySelector(${JSON.stringify(`button[aria-label="Complete ${taskNames.first}"]`)}).click()`)
 
 await evaluate(`(() => {
-  const button = document.querySelector('button[aria-label="Edit 20 minutes of drawing practice"]');
+  const button = document.querySelector(${JSON.stringify(`button[aria-label="Edit ${taskNames.fourth}"]`)});
   button.click();
 })()`)
 await waitFor("Boolean(document.querySelector('.task-dialog'))")
-await setValue("document.querySelector('.task-dialog input[placeholder*=\"morning medication\"]')", '20 minutes of drawing practice (sketchbook)')
+await setValue("document.querySelector('.task-dialog input[placeholder*=\"morning medication\"]')", taskNames.editedFourth)
 await clickText('Save changes', "document.querySelector('.task-dialog')")
-await waitFor("document.body.innerText.includes('sketchbook')")
+await waitFor(`document.body.innerText.includes(${JSON.stringify(taskNames.editedFourth)})`)
 
 await createTask('Temporary verification task', 'Coursework', 'none')
 await evaluate("window.confirm=()=>true")
 await evaluate("document.querySelector('button[aria-label=\"Delete Temporary verification task\"]').click()")
 await waitFor("!document.body.innerText.includes('Temporary verification task')")
 
-await evaluate("document.querySelector('button[aria-label=\"Focus on 30 minutes of Mandarin lessons\"]').click()")
+await evaluate(`document.querySelector(${JSON.stringify(`button[aria-label="Focus on ${taskNames.third}"]`)}).click()`)
 await clickText('Start focus')
 await wait(1200)
 await clickText('Pause')
@@ -167,7 +190,7 @@ await wait(1200)
 await clickText('Complete')
 await waitFor("window.gentleday.loadState().then(state => !Boolean(state.activeTimer))")
 
-await evaluate("document.querySelector('button[aria-label=\"Focus on 20 minutes of drawing practice (sketchbook)\"]').click()")
+await evaluate(`document.querySelector(${JSON.stringify(`button[aria-label="Focus on ${taskNames.editedFourth}"]`)}).click()`)
 await clickText('Start focus')
 await wait(1100)
 await clickText('Stop')

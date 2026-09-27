@@ -166,6 +166,50 @@ describe('serialized state storage', () => {
     await expect(store.load()).resolves.toBeNull()
     expect((await readdir(directory)).some(name => name.startsWith('state.json.corrupt-'))).toBe(true)
   })
+
+  it('reloads a paused active timer for process-restart recovery', async () => {
+    const directory = await temporaryDirectory()
+    const store = createStateStore(join(directory, 'state.json'))
+    const state = {
+      ...validState(),
+      activeTimer: {
+        id: 'focus-paused',
+        kind: 'focus',
+        status: 'paused',
+        plannedSeconds: 1500,
+        startedAtMs: 1_000,
+        pausedSinceMs: 301_000,
+        accumulatedActiveMs: 300_000,
+        accumulatedPausedMs: 0
+      }
+    }
+
+    await store.save(state)
+    await store.flush()
+
+    await expect(store.load()).resolves.toEqual(state)
+  })
+
+  it('reloads all edited focus and break duration settings', async () => {
+    const directory = await temporaryDirectory()
+    const store = createStateStore(join(directory, 'state.json'))
+    const state = validState() as ReturnType<typeof validState> & {
+      settings: Record<string, unknown>
+    }
+    state.settings = {
+      ...state.settings,
+      focusMinutes: 45,
+      shortBreakMinutes: 10,
+      longBreakMinutes: 25
+    }
+
+    await store.save(state)
+    await store.flush()
+
+    await expect(store.load()).resolves.toMatchObject({
+      settings: { focusMinutes: 45, shortBreakMinutes: 10, longBreakMinutes: 25 }
+    })
+  })
 })
 
 describe('vault append safety', () => {

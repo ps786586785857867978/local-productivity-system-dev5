@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": 1,
+      "url": "https://www.todoist.com/task-management",
+      "title": "Todoist task management",
+      "accessed": "2026-09-27"
+    },
+    {
+      "id": 2,
+      "url": "https://quire.io/features",
+      "title": "Quire features",
+      "accessed": "2026-09-27"
+    },
+    {
+      "id": 3,
+      "url": "https://help.evernote.com/hc/en-us/articles/1500003792141-Tasks-Overview",
+      "title": "Evernote Tasks overview",
+      "accessed": "2026-09-27"
+    },
+    {
+      "id": 4,
+      "url": "https://www.forestapp.cc",
+      "title": "Forest focus app",
+      "accessed": "2026-09-27"
+    },
+    {
+      "id": 5,
+      "url": "https://play.google.com/store/apps/details?id=pomotime.idealapps.ge",
+      "title": "PomoTime listing",
+      "accessed": "2026-09-27"
+    },
+    {
+      "id": 6,
+      "url": "https://pomofocus.io",
+      "title": "Pomofocus",
+      "accessed": "2026-09-27"
+    }
+  ]
+}

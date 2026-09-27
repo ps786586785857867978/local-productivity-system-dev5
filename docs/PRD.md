@@ -63,8 +63,7 @@ The user needs one calm offline tool that:
 
 - Review completed and cancelled focus sessions.
 - Review active focus duration, linked task/activity, date, and status.
-- Show daily routine completion and optional non-punitive streaks.
-- A streak counts consecutive completed days; missing a day resets it without negative messaging.
+- Show optional daily completion progress without points, penalties, or negative messaging.
 - Use a calm growing scene or companion as gentle visual feedback.
 
 ### Distraction control
@@ -122,7 +121,7 @@ Completing tasks and focus sessions subtly advances a small visual scene or comp
 5. Enter the distraction-free timer state.
 6. Pause and resume when interrupted, stop to cancel, complete early, or let the timer finish.
 7. Receive a phase-complete notification and manually start a break.
-8. Return to the dashboard and see task, streak, and gentle visual progress.
+8. Return to the dashboard and see task completion and gentle visual progress.
 9. Open History to review sessions.
 10. Open Obsidian to inspect human-readable append-only records.
 
@@ -130,25 +129,24 @@ Completing tasks and focus sessions subtly advances a small visual scene or comp
 
 ### Dashboard
 
-- Left: Today tasks grouped by life area or urgency.
+- Left: Today tasks with visible life-area, due-date, priority, and recurrence metadata.
 - Center/right: selected task, focus timer, primary controls, and current focus state.
 - Secondary: compact routine progress and gentle growth indicator.
 - Fast task entry remains visible without dominating the screen.
 
 ### History
 
-- Filterable chronological list of focus sessions and breaks.
+- Chronological focus-session and break lists.
 - Clear completed/cancelled status, actual active duration, and linked task/activity.
-- Lightweight summaries by day and life area.
+- Lightweight totals for completed focus, focused minutes, and completed tasks.
 
 ### Settings
 
 - Focus, short-break, and long-break durations.
 - Life-area management.
 - Obsidian vault location and pending-event status.
-- Notification preferences.
-- Optional macOS Focus/Shortcut setup.
-- Motion and streak preferences.
+- In-app distraction-free mode.
+- Motion and completion-progress preferences.
 
 ## Usability decisions
 
@@ -156,7 +154,7 @@ Completing tasks and focus sessions subtly advances a small visual scene or comp
 - Start, Pause, Resume, Stop, and Complete remain visually distinct.
 - Destructive actions require confirmation when scope is ambiguous.
 - Forms expose optional fields progressively.
-- Keyboard focus states and shortcuts support desktop use.
+- Keyboard-visible focus states and text-labeled controls support desktop use; dedicated shortcuts are deferred.
 - Motion is subtle and disabled or reduced when macOS reduced-motion preferences request it.
 - Empty, unavailable-vault, and restored-session states explain the next action plainly.
 - No guilt-based copy appears after missed routines or cancelled focus sessions.
@@ -179,9 +177,9 @@ Keep privileged file-system and operating-system behavior in the Electron main p
 
 ### Local storage
 
-Use a **versioned JSON persistence module with atomic writes** for application state, plus an append-only local event/outbox file for Obsidian delivery.
+Use a **versioned JSON persistence module with atomic writes** for application state, including the local Obsidian-delivery outbox.
 
-The expected dataset is small and personal. A deep storage module will own validation, migrations, temporary-file writes, rename-based commits, backup recovery, and all reads/writes. UI components will not access files directly.
+The expected dataset is small and personal. A focused storage module owns validation, temporary-file writes, rename-based commits, invalid-state quarantine, and all reads/writes. UI components do not access files directly. The version field reserves space for future migrations; version 1 does not implement migrations or backup recovery.
 
 Persist:
 
@@ -190,7 +188,6 @@ Persist:
 - focus and break sessions;
 - timer recovery state and timestamps;
 - settings and life areas;
-- streak state;
 - selected vault bookmark/path metadata;
 - queued Obsidian events and delivery status.
 
@@ -200,12 +197,16 @@ Persist:
 Gentleday/
 ├── Tasks/
 │   └── YYYY/
-│       └── YYYY-MM-DD.md
+│       └── MM/
+│           └── YYYY-MM-DD.md
 ├── Focus/
 │   └── YYYY/
-│       └── YYYY-MM-DD.md
-└── System/
-    └── README.md
+│       └── MM/
+│           └── YYYY-MM-DD.md
+└── Breaks/
+    └── YYYY/
+        └── MM/
+            └── YYYY-MM-DD.md
 ```
 
 Each daily file is append-only. Every event is a separate Markdown section with a stable event ID.
@@ -243,7 +244,7 @@ Every important app action first creates a local event. The outbox attempts to a
 
 Prefer tests at the highest stable behavior seams:
 
-1. **Product state service:** task lifecycle, recurrence, streaks, and day rollover through one public API.
+1. **Product state service:** task lifecycle, recurrence, settings, and day rollover through one public API.
 2. **Timer service:** state transitions, active-duration calculation, early completion, cancellation, and restart recovery.
 3. **Vault event writer:** Markdown formatting, append-only behavior, idempotent retry, and missing-vault outbox handling.
 4. **Desktop user flows:** a small set of end-to-end tests covering task CRUD, complete/reopen, focus lifecycle, settings, persistence after restart, and real vault output.
@@ -304,7 +305,7 @@ SwiftUI would provide a smaller native bundle and closer macOS integration. It w
 
 Tauri would produce a smaller application than Electron. It was not selected because the required Rust toolchain is not currently installed, and adding Rust plus plugin integration would increase setup and debugging risk without improving the assessed core behavior.
 
-## Design artifacts required before implementation
+## Approved design artifacts
 
 1. Dashboard wireframe — validates information hierarchy and combined task/timer layout.
 2. Visual style study — validates palette, type, density, and gentle-gamification direction.

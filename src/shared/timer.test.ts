@@ -32,4 +32,15 @@ describe('timer seam', () => {
     expect(readTimer(timer, 40_000)).toMatchObject({ status: 'running', activeSeconds: 30, remainingSeconds: 30 })
     expect(readTimer(timer, 75_000)).toMatchObject({ status: 'completed', activeSeconds: 60, remainingSeconds: 0 })
   })
+
+  it('reconstructs a paused timer from persisted timestamps without adding active time', () => {
+    const timer = pauseTimer(
+      startTimer({ id: 'focus-4', kind: 'focus', plannedSeconds: 60, startedAtMs: 10_000 }),
+      40_000
+    )
+
+    expect(readTimer(timer, 100_000)).toMatchObject({
+      status: 'paused', activeSeconds: 30, pausedSeconds: 60, remainingSeconds: 30
+    })
+  })
 })

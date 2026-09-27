@@ -1,7 +1,7 @@
 # Grill session — product decisions
 
 **Session date:** 2026-09-27  
-**Status:** synthesis awaiting user alignment
+**Status:** approved and implemented
 
 ## Product objective
 
@@ -19,8 +19,7 @@ The primary user is a student balancing coursework with recurring health, learni
 - Starting editable life areas: Health, Learning, Creative, Movement, and Coursework.
 - Daily routines repeat automatically and reset at local midnight.
 - Resetting creates a new daily occurrence without deleting the previous day’s completion event.
-- Optional streaks count consecutive days completed.
-- Missing a day resets a streak without punitive messaging.
+- Optional completion progress uses non-punitive messaging; streak scoring is deferred.
 - Deleting a recurring task asks whether to delete only today’s occurrence or the entire routine.
 - Public screenshots and submission samples use neutral demo tasks rather than personal health routines.
 
@@ -76,7 +75,7 @@ The primary user is a student balancing coursework with recurring health, learni
 4. Start a focus session from the selected task or enter a short activity.
 5. Enter distraction-free mode and optionally trigger a user-authorized macOS Focus integration.
 6. Pause, resume, stop, complete early, or let the timer complete.
-7. Review focus history, task history, streaks, and gentle visual progress.
+7. Review focus history, task history, completion progress, and gentle visual feedback.
 8. Inspect the append-only Markdown history in Obsidian when desired.
 
 ## Edge cases resolved
@@ -100,9 +99,9 @@ The primary user is a student balancing coursework with recurring health, learni
 - Cross-platform support for the first submitted version
 - Advanced project dependencies or enterprise reporting
 
-## Open items before implementation
+## Resolution of implementation items
 
-1. User alignment with this synthesis.
-2. Select or supply an appropriately usable pause-state animation later; the fallback will work without it.
-3. Run a small technical spike for supported macOS Focus integration.
-4. Select the final framework and local database after comparing implementation risk.
+1. The user approved the synthesis and all design references.
+2. The original text-and-motion pause/focus treatment remains the safe fallback; no unlicensed character artwork is bundled.
+3. Supported macOS Focus integration was deferred; the verified in-app distraction-free mode fulfills the fallback requirement.
+4. Electron, React, TypeScript, and versioned atomic JSON persistence were selected and implemented.
