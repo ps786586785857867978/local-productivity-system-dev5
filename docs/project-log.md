@@ -59,3 +59,19 @@ This is a chronological project record. Entries are append-only.
 - Obsidian reliability: append-only events with a local retry queue if the vault is unavailable
 - Privacy: neutral demo tasks in public assessment material
 - Remaining decisions: user approval, pause asset later, macOS Focus technical spike, framework/database selection
+
+## 2026-09-27 21:09 CEST
+
+### Event: PRD and design references completed
+
+- Status: awaiting_design_review
+- PRD: `docs/PRD.md`
+- Working product name: Gentleday
+- Technical direction: Electron, React, TypeScript, versioned atomic JSON persistence, append-only Obsidian outbox
+- Visual artifacts created and browser-verified:
+  - `docs/references/01-dashboard-wireframe.html` and `.png`
+  - `docs/references/02-style-study.html` and `.png`
+  - `docs/references/03-focus-state-prototype.html` and `.png`
+- Design notes: `docs/references/DESIGN_NOTES.md`
+- Recommended visual direction: Sage Studio, with Night Orchard reserved as a possible focus-only treatment
+- Next checkpoint: user design approval before implementation styling is locked
