@@ -75,3 +75,41 @@ This is a chronological project record. Entries are append-only.
 - Design notes: `docs/references/DESIGN_NOTES.md`
 - Recommended visual direction: Sage Studio, with Night Orchard reserved as a possible focus-only treatment
 - Next checkpoint: user design approval before implementation styling is locked
+
+## 2026-09-27 21:13 CEST
+
+### Event: all design references approved
+
+- Status: completed
+- User confirmed the dashboard wireframe, all three style explorations, and the focus-state prototype.
+- Production direction: Sage Studio primary styling; Night Orchard may inform distraction-free focus mode.
+- Build phase authorized.
+
+## 2026-09-27 21:54 CEST
+
+### Event: Gentleday implementation milestone completed
+
+- Status: implemented_and_locally_verified
+- Built an offline Electron + React macOS application with local JSON persistence.
+- Implemented task creation, editing, completion, reopening, deletion, and daily recurrence.
+- Implemented focus and break timers with pause/resume, cancellation, early completion, timestamp restoration, and actual active-time accounting.
+- Implemented user-selected Obsidian vault storage, predictable task/focus/break folders, append-only Markdown, duplicate-event protection, and a local retry outbox.
+- Added Today, History, and Settings screens using the approved Sage Studio direction and an in-app Night Orchard distraction-free mode.
+- Automated tests: 11 passing across task, timer, recurrence, settings, and Markdown formatting seams.
+- Production build: `release/mac-arm64/Gentleday.app` launched successfully.
+- Actual app-generated records verified in `Gentleday/Tasks`, `Gentleday/Focus`, and `Gentleday/Breaks` inside the selected Obsidian vault.
+- Next checkpoint: independent code review, commit/push, then clean-clone verification and submission documentation.
+
+## 2026-09-27 22:31 CEST
+
+### Event: implementation independently verified
+
+- Status: completed
+- Two code-review fix cycles resolved persistence races, vault path ownership and reconnection, symlink/root replacement defenses, Electron sandbox and origin controls, strict runtime validation, Markdown injection safety, local-midnight rollover, recurring-template propagation, Today visibility, local-date metrics, precise duration display, and functional motivation settings.
+- Final independent code/security review: passed with no security concerns or logic errors.
+- Final independent requirements review: passed with no missing or incorrect material requirements.
+- Automated verification: 27 tests across four test files passed.
+- TypeScript typecheck, production build, dependency audit, staged diff validation, macOS ARM64 packaging, real Electron QA, packaged-app QA, and Obsidian synchronization passed.
+- Packaged output: `release/mac-arm64/Gentleday.app`.
+- App-generated vault synchronization: 16 events delivered with 0 pending after the latest QA run.
+- Remaining submission work: clean-clone verification, README/report completion, named Obsidian sample, PDF export, and final artifact check.

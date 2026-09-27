@@ -1,0 +1,62 @@
+{
+  "name": "gentleday",
+  "version": "0.1.0",
+  "description": "Offline macOS task and focus system with append-only Obsidian logging.",
+  "main": "./out/main/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "npm run typecheck && electron-vite build",
+    "preview": "electron-vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "dist:mac": "npm run build && electron-builder --mac dir"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ps786586785857867978/local-productivity-system-dev5.git"
+  },
+  "keywords": ["productivity", "pomodoro", "obsidian", "offline", "electron"],
+  "author": "ps786586785857867978",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ps786586785857867978/local-productivity-system-dev5/issues"
+  },
+  "homepage": "https://github.com/ps786586785857867978/local-productivity-system-dev5#readme",
+  "dependencies": {
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.7",
+    "@types/node": "26.6.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "5.2.0",
+    "electron": "44.4.5",
+    "electron-builder": "26.15.3",
+    "electron-vite": "5.0.0",
+    "jsdom": "29.1.1",
+    "typescript": "7.0.2",
+    "vite": "7.3.6",
+    "vitest": "4.1.11"
+  },
+  "build": {
+    "appId": "com.saule.gentleday",
+    "productName": "Gentleday",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": ["dir"]
+    }
+  }
+}

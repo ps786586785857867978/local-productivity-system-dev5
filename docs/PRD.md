@@ -1,14 +1,14 @@
 # Gentleday — Product Requirements Document
 
-**Version:** 1.0 draft  
-**Date:** 2026-09-27  
-**Status:** Grill decisions approved; design validation pending
+**Version:** 1.0
+**Date:** 2026-09-27
+**Status:** Approved, implemented, and independently verified
 
 ## Product name and purpose
 
 **Gentleday** is a local macOS productivity application that combines personal task management with Pomodoro-style focus tracking. It helps one student manage recurring life routines and coursework, focus on one concrete activity at a time, and maintain a trustworthy append-only record in Obsidian.
 
-The name is a working title and may be changed without altering the product scope.
+The approved product name is **Gentleday**.
 
 ## Intended user and problem
 
