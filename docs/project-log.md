@@ -45,3 +45,17 @@ This is a chronological project record. Entries are append-only.
 - Interruption preference: pausing should enter a reassuring “ready to continue” state with a cute existing animation.
 - Asset constraint: do not generate a Wallace & Gromit image; only use a user-supplied or appropriately licensed existing asset. Keep copyrighted personal details out of any future public repository/report unless explicitly approved.
 - Next step: continue the Grill decision tree before writing the final PRD.
+
+## 2026-09-27 20:59 CEST
+
+### Event: Grill decision tree synthesized
+
+- Status: awaiting_user_alignment
+- Artifact: `docs/GRILL_SESSION.md`
+- Platform: macOS desktop
+- Task model: Today plus editable life areas, optional due date and priority, daily recurring routines
+- Focus model: editable 25/5/15 defaults, active-time accounting, resumable pause, cancelled Stop, early completion allowed
+- Visual direction: dashboard, gentle growing scene/companion, optional streaks, non-punitive language
+- Obsidian reliability: append-only events with a local retry queue if the vault is unavailable
+- Privacy: neutral demo tasks in public assessment material
+- Remaining decisions: user approval, pause asset later, macOS Focus technical spike, framework/database selection
