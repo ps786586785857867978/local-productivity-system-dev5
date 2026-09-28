@@ -133,6 +133,8 @@ The later feature commit `ee3a7e48d26cadc22fa821b6025c8b1886149edd` was independ
 
 The task-view follow-up commit `7fd6346fa2bc1769b5a2a651b5a565ca3a8c0e4d` was also reproduced from a fresh clone. It passed all 44 tests, typecheck, build, ARM64 packaging, dependency audit, and source-diff checks. Packaged renderer QA verified the labeled four-option dropdown, visible task rows in week/month, and the dated calendar in both themes.
 
+The final layout-and-theme feature commit `0b50406f7033e0bc1ad49d631fe1b781f0321386` was reproduced from a fresh clone. It passed all 47 tests across five files, typecheck, build, ARM64 packaging, dependency audit, and source-diff checks. Its packaged app passed the complete neutral task/timer QA flow. A second packaged inspection launched with forced operating-system dark mode confirmed that moonim still opens in the warm light theme, places the range selector at the top of the task card, omits the superseded heading, and switches to the explicit dark theme from Settings.
+
 Real Obsidian synchronization was also tested using the finished application. The latest verification delivered 16 app-generated events and left zero pending. The original task, focus, and break files remain in the selected vault as evidence.
 
 Detailed results are recorded in `docs/testing/ACCEPTANCE_TESTS.md`.
@@ -172,7 +174,7 @@ If I continued the project, I would add automated desktop tests for crossing mid
 
 moonim meets the assignment goal as one functional offline desktop application rather than two disconnected prototypes. It combines personal task management and focus tracking, preserves state across restarts, records honest active duration, and writes durable append-only history into a user-owned Obsidian vault.
 
-The project moved through research, Grill decisions, approved design references, implementation, independent review, real-app evidence generation, clean-clone verification, and macOS packaging. The latest moonim artifact is backed by repeatable evidence from exact commit `7fd6346fa2bc1769b5a2a651b5a565ca3a8c0e4d` rather than screenshots alone.
+The project moved through research, Grill decisions, approved design references, implementation, independent review, real-app evidence generation, clean-clone verification, and macOS packaging. The latest moonim feature artifact is backed by repeatable evidence from exact commit `0b50406f7033e0bc1ad49d631fe1b781f0321386` rather than screenshots alone.
 
 ## Sources
 
