@@ -17,7 +17,8 @@ import {
   isAllowedRendererUrl,
   isLocalhostRendererUrl,
   isProductState,
-  migrateLegacyStateFile
+  migrateLegacyStateFile,
+  shouldMigrateLegacyState
 } from './storage'
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
@@ -31,6 +32,7 @@ const rendererUrl = developmentRendererUrl ?? packagedRendererUrl
 const stateFilename = 'gentleday-state.json'
 const currentStatePath = join(app.getPath('userData'), stateFilename)
 const legacyStatePath = join(app.getPath('appData'), 'Gentleday', stateFilename)
+const migrateLegacyProfile = shouldMigrateLegacyState(app.commandLine.hasSwitch('user-data-dir'))
 const stateStore = createStateStore(currentStatePath)
 let legacyMigration: Promise<void> | null = null
 
@@ -40,7 +42,9 @@ const vaultAccess = createConfiguredVaultAccess()
 const appendEvents = createSerializedVaultAppender(() => vaultAccess.resolve())
 
 function ensureLegacyMigration(): Promise<void> {
-  legacyMigration ??= migrateLegacyStateFile(legacyStatePath, currentStatePath)
+  legacyMigration ??= migrateLegacyProfile
+    ? migrateLegacyStateFile(legacyStatePath, currentStatePath)
+    : Promise.resolve()
   return legacyMigration
 }
 

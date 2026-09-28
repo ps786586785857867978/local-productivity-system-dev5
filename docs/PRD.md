@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Date:** 2026-09-28
-**Status:** Approved, implemented, independently reviewed, and clean-clone verified
+**Status:** Approved, implemented, and independently verified locally; commit-specific clean-clone verification remains pending
 
 ## Product name and purpose
 
@@ -38,10 +38,14 @@ The user needs one calm offline tool that:
 - Create, view, edit, and delete tasks.
 - Complete and reopen tasks.
 - Persist tasks after closing and reopening the application.
-- Optional life area, due date, and priority.
+- Optional life area, due date, scheduled time, task-specific focus duration, and priority.
 - Editable starting life areas: Health, Learning, Creative, Movement, Coursework.
 - Today dashboard combining daily routines, due work, and prioritized work.
+- Switch the task field between Today, This week, This month, and a month calendar without losing task edit/delete access.
+- Today includes current and overdue unfinished work but excludes future occurrences, which remain manageable through the broader views.
 - Daily recurring routines that reset at local midnight.
+- Weekly recurring routines that return on the same weekday.
+- A selected due date becomes the first occurrence date for a recurring routine, and future occurrence dates advance with the cadence.
 - Previous occurrences and events remain preserved.
 - Deleting a recurring item asks whether to remove today’s occurrence or the complete routine.
 
@@ -51,6 +55,7 @@ The user needs one calm offline tool that:
 - Start and complete short or long breaks.
 - Editable default durations: 25-minute focus, 5-minute short break, 15-minute long break.
 - Link a focus session to an existing task or a short free-form activity.
+- When a linked task has an optional focus duration, use it for that timer instead of the global focus default.
 - Exclude paused time from actual focus duration.
 - Stop marks a session cancelled and retains active duration.
 - Reaching zero completes a session automatically.
@@ -65,6 +70,7 @@ The user needs one calm offline tool that:
 - Review active focus duration, linked task/activity, date, and status.
 - Show optional daily completion progress without points, penalties, or negative messaging.
 - Use a calm growing scene or companion as gentle visual feedback.
+- Keep all text and controls readable in both light and dark operating-system themes.
 
 ### Distraction control
 

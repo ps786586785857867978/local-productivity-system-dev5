@@ -1,4 +1,7 @@
 const endpoint = process.env.GENTLEDAY_CDP ?? 'http://127.0.0.1:9222'
+const assertQa = (condition, message) => {
+  if (!condition) throw new Error(`QA assertion failed: ${message}`)
+}
 const taskNames = process.env.QA_PROFILE === 'neutral'
   ? {
       first: 'Review Dev 5 report',
@@ -104,12 +107,18 @@ async function setValue(selectorExpression, value, prototypeName = 'HTMLInputEle
   if (!changed) throw new Error(`Input not found: ${selectorExpression}`)
 }
 
-async function createTask(title, area, recurrence = 'daily') {
+async function createTask(title, area, recurrence = 'daily', scheduledTime = '', focusMinutes = '') {
   await clickText('＋ Add task')
   await waitFor("Boolean(document.querySelector('.task-dialog'))")
   await setValue("document.querySelector('.task-dialog input[placeholder*=\"morning medication\"]')", title)
   await setValue("[...document.querySelectorAll('.task-dialog select')].find(item => [...item.options].some(option => option.text === 'Health'))", area, 'HTMLSelectElement')
   await setValue("[...document.querySelectorAll('.task-dialog select')].find(item => [...item.options].some(option => option.text === 'Every day'))", recurrence, 'HTMLSelectElement')
+  if (scheduledTime) {
+    await setValue("document.querySelector('.task-dialog input[type=\"time\"]')", scheduledTime)
+  }
+  if (focusMinutes) {
+    await setValue("document.querySelector('.task-dialog input[type=\"number\"]')", focusMinutes)
+  }
   await clickText('Add task', "document.querySelector('.task-dialog')")
   await waitFor(`document.body.innerText.includes(${JSON.stringify(title)})`)
 }
@@ -139,6 +148,10 @@ if (process.env.SYNC_ONLY === '1') {
   process.exit(0)
 }
 if (process.env.RESET_STATE === '1') {
+  const existingState = await evaluate('window.gentleday.loadState()')
+  if (existingState?.settings?.vaultPath && !process.env.VAULT_PATH) {
+    throw new Error('Refusing to reset a QA profile that is connected to an Obsidian vault')
+  }
   await evaluate(`window.gentleday.saveState({
     version: 1,
     tasks: [],
@@ -160,7 +173,7 @@ if (process.env.RESET_STATE === '1') {
 await createTask(taskNames.first, taskNames.firstArea)
 await createTask(taskNames.second, taskNames.secondArea)
 await createTask(taskNames.third, taskNames.thirdArea)
-await createTask(taskNames.fourth, taskNames.fourthArea)
+await createTask(taskNames.fourth, taskNames.fourthArea, 'weekly', '09:30', '30')
 
 await evaluate(`(() => {
   const button = document.querySelector(${JSON.stringify(`button[aria-label="Complete ${taskNames.first}"]`)});
@@ -211,14 +224,42 @@ const state = await evaluate('window.gentleday.loadState()')
 const summary = {
   tasks: state.tasks.length,
   completedTasks: state.tasks.filter(task => task.status === 'completed').length,
+  weeklyTask: state.tasks.find(task => task.title === taskNames.editedFourth)
+    ? {
+        recurrence: state.tasks.find(task => task.title === taskNames.editedFourth).recurrence,
+        scheduledTime: state.tasks.find(task => task.title === taskNames.editedFourth).scheduledTime,
+        focusMinutes: state.tasks.find(task => task.title === taskNames.editedFourth).focusMinutes
+      }
+    : null,
   sessions: state.sessions.map(session => ({
     kind: session.kind,
     status: session.status,
+    plannedSeconds: session.plannedSeconds,
     activeSeconds: session.activeSeconds,
     pausedSeconds: session.pausedSeconds
   })),
   queuedEventTypes: state.outbox.filter(event => !event.deliveredAt).map(event => event.eventType)
 }
+
+assertQa(summary.tasks === 5, `expected 5 tasks, received ${summary.tasks}`)
+assertQa(summary.completedTasks === 1, `expected 1 completed task, received ${summary.completedTasks}`)
+assertQa(summary.weeklyTask?.recurrence === 'weekly', 'weekly task recurrence was not preserved')
+assertQa(summary.weeklyTask?.scheduledTime === '09:30', 'weekly task scheduled time was not preserved')
+assertQa(summary.weeklyTask?.focusMinutes === 30, 'weekly task focus duration was not preserved')
+
+const expectedSessions = [
+  ['focus', 'completed', 1500],
+  ['focus', 'cancelled', 1800],
+  ['short_break', 'completed', 300]
+]
+assertQa(summary.sessions.length === expectedSessions.length, `expected ${expectedSessions.length} sessions, received ${summary.sessions.length}`)
+expectedSessions.forEach(([kind, status, plannedSeconds], index) => {
+  const session = summary.sessions[index]
+  assertQa(session?.kind === kind, `session ${index + 1} expected kind ${kind}, received ${session?.kind}`)
+  assertQa(session?.status === status, `session ${index + 1} expected status ${status}, received ${session?.status}`)
+  assertQa(session?.plannedSeconds === plannedSeconds, `session ${index + 1} expected ${plannedSeconds} planned seconds, received ${session?.plannedSeconds}`)
+})
+assertQa(summary.queuedEventTypes.length === 16, `expected 16 safely queued events, received ${summary.queuedEventTypes.length}`)
 
 console.log(JSON.stringify(summary, null, 2))
 socket.close()

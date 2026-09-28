@@ -93,6 +93,10 @@ function isOptionalIsoTimestamp(value: unknown): value is string | undefined {
   return value === undefined || isIsoTimestamp(value)
 }
 
+function isOptionalLocalTime(value: unknown): value is string | undefined {
+  return value === undefined || (typeof value === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value))
+}
+
 function isJsonSafe(value: unknown, depth = 0, seen = new Set<object>()): boolean {
   if (value === null || typeof value === 'boolean' || typeof value === 'string') {
     return typeof value !== 'string' || value.length <= MAX_JSON_STRING_LENGTH
@@ -145,7 +149,9 @@ function isTask(value: unknown): boolean {
     (value.lifeArea === undefined || isBoundedString(value.lifeArea, MAX_METADATA_LENGTH)) &&
     (value.priority === undefined || isOneOf(value.priority, ['low', 'medium', 'high'] as const)) &&
     (value.dueDate === undefined || isValidLocalDate(value.dueDate)) &&
-    isOneOf(value.recurrence, ['none', 'daily'] as const) &&
+    isOptionalLocalTime(value.scheduledTime) &&
+    (value.focusMinutes === undefined || (isPositiveInteger(value.focusMinutes) && value.focusMinutes <= 180)) &&
+    isOneOf(value.recurrence, ['none', 'daily', 'weekly'] as const) &&
     isValidLocalDate(value.occurrenceDate) &&
     isOneOf(value.status, ['active', 'completed', 'deleted'] as const) &&
     isIsoTimestamp(value.createdAt) &&
@@ -153,7 +159,11 @@ function isTask(value: unknown): boolean {
     isOptionalIsoTimestamp(value.completedAt) &&
     (value.status === 'completed'
       ? isIsoTimestamp(value.completedAt)
-      : value.status === 'active' ? value.completedAt === undefined : true)
+      : value.status === 'active' ? value.completedAt === undefined : true) &&
+    (value.recurrence === 'none'
+      ? value.seriesId === undefined
+      : isSingleLine(value.seriesId, MAX_ID_LENGTH)) &&
+    (value.recurrence !== 'weekly' || value.dueDate === undefined || value.dueDate === value.occurrenceDate)
 }
 
 function isFocusSession(value: unknown): boolean {
@@ -213,6 +223,10 @@ export function isProductState(value: unknown): value is ProductState {
     Array.isArray(value.outbox) && value.outbox.every(isLogEvent) &&
     Array.isArray(value.deletedSeriesIds) && value.deletedSeriesIds.every(id => isSingleLine(id, MAX_ID_LENGTH)) &&
     isSettings(value.settings)
+}
+
+export function shouldMigrateLegacyState(hasUserDataOverride: boolean): boolean {
+  return !hasUserDataOverride
 }
 
 export async function migrateLegacyStateFile(legacy: string, target: string): Promise<void> {

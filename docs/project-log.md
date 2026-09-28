@@ -159,3 +159,40 @@ This is a chronological project record. Entries are append-only.
 - GitHub tracking: issue #2, `Rebrand and remodel app as moonim`.
 - Regenerated `submission/Saule_3IXD_Dev5_PRD.PDF` from the reconciled moonim report, corrected its metadata, confirmed 10 pages, extracted the expected text, and visually inspected the title, content, image, dashboard, and final pages.
 - Final evidence update prepared for push; issue #2 will be closed against the verified moonim artifact commit.
+
+## 2026-09-28 11:10 CEST
+
+### Event: scheduled task times and weekly recurrence implemented
+
+- Status: verification_in_progress
+- Added an optional time-of-day field to task creation and editing; scheduled times appear in Today task metadata.
+- Added an `Every week` cadence alongside existing one-off and daily options.
+- Weekly routines return on the same weekday, preserve their scheduled time, and support occurrence-level or full-series deletion.
+- A selected due date now anchors the first recurring occurrence; generated recurring tasks advance their due date to the new occurrence date.
+- Persisted scheduled times are accepted only in zero-padded 24-hour `HH:mm` form.
+- TDD evidence: weekly recurrence, due-date anchoring, and persisted-time validation tests failed before implementation and now pass.
+- Added an optional per-task focus duration. Linked tasks with a duration override the global focus default; tasks without one continue using the configured default.
+- Packaged QA verified a default task at 1,500 planned seconds and a 30-minute drawing task at 1,800 planned seconds.
+- Independent review found that an explicit Electron `--user-data-dir` could still inherit the global legacy profile during QA. Explicit isolated profiles now skip legacy migration, and reset QA refuses to run against a profile connected to a vault.
+- Packaged QA now asserts weekly metadata and the exact 1,500/1,800-second timer behavior instead of only printing it.
+- Recurring persisted tasks now require valid series metadata, weekly due-date anchors are validated, and future recurring tasks remain manageable through broader task views.
+- At this checkpoint, all 39 tests, typecheck, production build, ARM64 packaging, dependency audit, packaged Electron QA, and visual dialog inspection passed.
+- GitHub tracking: issue #3, `Add scheduled times, weekly recurrence, and task durations`.
+- Remaining checkpoint: independent review, commit/push, clean-clone verification, and final evidence reconciliation.
+
+## 2026-09-28 17:12 CEST
+
+### Event: task views, supplied icon, and dark-mode corrections implemented
+
+- Status: independently_verified_local
+- Replaced the renderer brand mark and packaged PNG/ICNS icons with the newly supplied moonim reading artwork.
+- Added Today, This week, This month, and Calendar switches directly to the task panel, including a six-week month grid with task editing from calendar entries.
+- Replaced “Begin a quiet session” with “Choose what to focus on.”
+- Added explicit dark-theme colors for cards, text, form controls, tabs, calendar cells, completed entries, and primary actions.
+- The first independent review found future recurring tasks leaking into Today, calendar completion-date/placement disagreement, Today’s Growth depending on the selected view, and insufficient contrast for dark primary buttons and muted calendar content.
+- Corrected Today to show current and overdue work only, aligned calendar filtering with scheduled-date placement, made Today’s Growth independent of the selected range, and increased dark-calendar/button contrast and calendar label legibility.
+- TDD evidence: three visibility/placement assertions failed before the domain correction and now pass.
+- A later fail-closed review identified an invalid weekly due-date edit path plus low-contrast priority/checkmark/focus-ring states. Recurring due-date edits now update the occurrence anchor, and dark-mode priority, completed-checkmark, and keyboard-focus colors now exceed the relevant contrast thresholds.
+- Final independent code/security re-review passed with no security concerns or logic errors. Final visual/accessibility re-review passed with no blockers.
+- Current verification: 43 tests across four files, typecheck, production build, ARM64 packaging, zero high-severity audit findings, source-diff checks, packaged calendar rendering, and explicit light/dark visual inspection pass.
+- Remaining checkpoint: commit/push, clean-clone verification, GitHub issue update, and final evidence reconciliation.

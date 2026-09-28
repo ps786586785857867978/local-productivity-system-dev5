@@ -13,7 +13,8 @@ import {
   isLogEvent,
   isProductState,
   isValidLocalDate,
-  migrateLegacyStateFile
+  migrateLegacyStateFile,
+  shouldMigrateLegacyState
 } from './storage'
 
 const temporaryDirectories: string[] = []
@@ -63,6 +64,11 @@ function validEvent(id = 'event-1', localDate = '2026-09-27'): Record<string, un
 }
 
 describe('runtime validation', () => {
+  it('keeps explicit user-data profiles isolated from the global legacy profile', () => {
+    expect(shouldMigrateLegacyState(false)).toBe(true)
+    expect(shouldMigrateLegacyState(true)).toBe(false)
+  })
+
   it('accepts a complete ProductState and rejects malformed nested values', () => {
     expect(isProductState(validState())).toBe(true)
     expect(isProductState({ ...validState(), tasks: [{ id: 'incomplete' }] })).toBe(false)
@@ -132,6 +138,55 @@ describe('runtime validation', () => {
     expect(isProductState({ ...validState(), activeTimer: { ...activeTimer, runningSinceMs: 999 } })).toBe(false)
     expect(isProductState({ ...validState(), activeTimer: { ...activeTimer, status: 'completed', endedAtMs: 2_000 } })).toBe(false)
     expect(isProductState({ ...validState(), tasks: [task], sessions: [session], activeTimer })).toBe(true)
+  })
+
+  it('accepts weekly tasks with valid scheduling metadata and rejects malformed values', () => {
+    const weeklyTask = {
+      id: 'task-weekly',
+      seriesId: 'series-weekly',
+      title: 'Weekly planning',
+      recurrence: 'weekly',
+      scheduledTime: '09:30',
+      focusMinutes: 30,
+      occurrenceDate: '2026-09-27',
+      status: 'active',
+      createdAt: '2026-09-27T10:00:00.000Z',
+      updatedAt: '2026-09-27T10:00:00.000Z'
+    }
+
+    expect(isProductState({ ...validState(), tasks: [weeklyTask] })).toBe(true)
+    expect(isProductState({
+      ...validState(),
+      tasks: [{ ...weeklyTask, scheduledTime: '9:30' }]
+    })).toBe(false)
+    expect(isProductState({
+      ...validState(),
+      tasks: [{ ...weeklyTask, scheduledTime: '24:00' }]
+    })).toBe(false)
+    expect(isProductState({
+      ...validState(),
+      tasks: [{ ...weeklyTask, focusMinutes: 0 }]
+    })).toBe(false)
+    expect(isProductState({
+      ...validState(),
+      tasks: [{ ...weeklyTask, focusMinutes: 181 }]
+    })).toBe(false)
+    expect(isProductState({
+      ...validState(),
+      tasks: [{ ...weeklyTask, seriesId: undefined }]
+    })).toBe(false)
+    expect(isProductState({
+      ...validState(),
+      tasks: [{ ...weeklyTask, recurrence: 'none' }]
+    })).toBe(false)
+    expect(isProductState({
+      ...validState(),
+      tasks: [{ ...weeklyTask, dueDate: '2026-09-28' }]
+    })).toBe(false)
+    expect(isProductState({
+      ...validState(),
+      tasks: [{ ...weeklyTask, recurrence: 'daily', dueDate: '2026-09-28' }]
+    })).toBe(true)
   })
 
   it('requires a real zero-padded calendar date', () => {

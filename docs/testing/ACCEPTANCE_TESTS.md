@@ -2,20 +2,20 @@
 
 **Verification date:** 2026-09-28
 **Previous clean-clone baseline:** `2e0e0b6feaf2dcd66e9cd4a66f6a6de9efa7243e` (30-test Gentleday revision)
-**Current moonim suite:** 33 tests plus revised packaging and design artifacts
+**Current moonim suite:** 43 tests plus revised packaging and design artifacts
 **Platform:** macOS on Apple Silicon
-**Current result:** Local, independent, and clean-clone verification passed for moonim artifact commit `d70cb4033cd5ff620784b766a6095368f8de6094`
+**Current result:** The 43-test scheduling/task-view/icon/theme revision passes local automated, build, packaged-app, light/dark visual QA, and final independent code/security and visual/accessibility re-reviews; commit-specific clean-clone verification is pending
 
 ## Automated verification
 
 | Check | Result | Evidence |
 |---|---:|---|
 | Dependency install from lockfile | Pass | Existing lockfile install baseline plus current `npm audit`; 0 vulnerabilities |
-| Unit and storage tests | Pass | 33 tests across 4 files |
+| Unit and storage tests | Pass | 43 tests across 4 files |
 | Type safety | Pass | `npm run typecheck` |
 | Production build | Pass | `npm run build` |
 | macOS package | Pass | `npm run dist:mac`; `release/mac-arm64/moonim.app` created with custom icon |
-| Source hygiene | Pass | `git diff --check`; independent moonim code/security and requirement/visual reviews passed |
+| Source hygiene | Pass | `git diff --check`; final independent code/security and visual/accessibility re-reviews passed |
 | Clean-clone revision | Pending | To be run after the moonim revision is committed and pushed |
 
 ## Acceptance matrix
@@ -27,7 +27,11 @@
 | 3 | Complete a task and queue `task_completed` | Product tests and Electron QA | Pass |
 | 4 | Reopen a task and queue `task_reopened` | Product tests and Electron QA | Pass |
 | 5 | Delete without removing historical events | Product tests and Electron QA | Pass |
-| 6 | Create one daily occurrence after local midnight | Recurrence tests and renderer rollover implementation | Pass |
+| 6 | Create daily and weekly occurrences on their correct local dates | Recurrence tests and renderer rollover implementation | Pass |
+| 6a | Save, validate, display, edit, and repeat an optional scheduled task time | Product/storage tests, task dialog inspection, and packaged Electron QA | Pass |
+| 6b | Optionally use a task-specific focus duration while retaining the global default for other tasks | Product/storage tests and packaged Electron QA (`1500` default versus `1800` task-specific planned seconds) | Pass |
+| 6c | Switch the task field among Today, This week, This month, and Calendar while keeping future work out of Today | Product view-filter tests and packaged renderer inspection | Pass |
+| 6d | Keep all visible text and controls readable in light and dark themes | Explicit light/dark packaged screenshots and computed-style inspection | Pass |
 | 7 | Delete one occurrence or the full recurring series | Product tests and confirmation flow | Pass |
 | 8 | Start focus and queue `focus_started` | Product tests and Electron QA | Pass |
 | 9 | Pause without counting paused time | Timer tests and Electron QA | Pass |
@@ -49,9 +53,9 @@
 | 23 | Continue offline and queue events if no vault is selected or a configured vault is unavailable | Packaged no-vault QA with 16 queued events; configured-vault outage storage test | Pass |
 | 24 | Reconnect an unavailable configured vault automatically | Storage reconnection test | Pass |
 | 25 | Keep core behavior independent of networking | No runtime network services; packaged offline QA | Pass |
-| 26 | Cover state, timer, vault, persistence, validation, path safety, migration, and independent history clearing | 33 automated tests | Pass |
+| 26 | Cover state, timer, vault, persistence, validation, path safety, migration, recurrence, scheduling, task views, and independent history clearing | 43 automated tests | Pass |
 | 27 | Complete the main macOS flow | Development and packaged Electron QA | Pass |
-| 28 | Install, test, build, package, and relaunch from a clean clone | Clean-clone verification at `d70cb4033cd5ff620784b766a6095368f8de6094` | Pass |
+| 28 | Install, test, build, package, and relaunch from a clean clone | Historical redesign baseline verified at `d70cb4033cd5ff620784b766a6095368f8de6094`; current revision pending | Pending |
 | 29 | Keep assessment screenshots and final sample privacy-safe | Reviewed design artifacts and neutral final submission sample | Pass |
 | 30 | Use records produced by the actual app | Real files written through Electron IPC to the selected vault | Pass |
 
@@ -88,10 +92,12 @@ Earlier Gentleday review rounds identified and then verified fixes for:
 - exact duration display and retry behavior;
 - functional progress and reduced-motion settings.
 
-On 28 September 2026, the staged moonim revision received a fresh fail-closed code/security review and a separate requirement/visual/documentation review. After the first review cycle identified profile migration, asset tracking, icon treatment, responsive layout, and documentation-attribution issues, the corrected staged tree passed both final reviews. The final code/security review reported no security concerns or logic errors. The final requirement/visual review reported no missing requirements, visual or usability errors, or documentation errors.
+On 28 September 2026, the moonim redesign later committed as `d70cb4033cd5ff620784b766a6095368f8de6094` received a fresh fail-closed code/security review and a separate requirement/visual/documentation review. After the first review cycle identified profile migration, asset tracking, icon treatment, responsive layout, and documentation-attribution issues, the corrected redesign passed both final reviews. Those verdicts apply to the redesign baseline, not automatically to later revisions.
+
+The current scheduling, task-view, icon, and theme revision was reviewed separately. Review rounds corrected explicit-profile migration during QA, task-view date semantics, calendar placement, daily-summary independence, recurring due-date persistence, and dark-mode contrast/focus visibility. The final fail-closed code/security and visual/accessibility re-reviews passed. Commit-specific clean-clone verification remains pending.
 
 ## Packaging notes
 
 - The submitted bundle is unsigned because no Apple Developer ID certificate is installed.
-- Electron Builder packages the user-supplied Gromit image as the application icon.
+- Electron Builder packages the newly supplied moonim reading image as the application icon; the user-supplied Gromit scene remains in Today’s Growth.
 - macOS may therefore show a Gatekeeper warning on another machine; development and local assessment builds remain functional.

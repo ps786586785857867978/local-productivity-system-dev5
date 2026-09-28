@@ -8,11 +8,11 @@
 
 ## 1. Executive summary
 
-moonim is a local-first macOS productivity application that combines task management, recurring daily routines, focus and break tracking, durable local persistence, and append-only Markdown logging to a user-selected Obsidian vault.
+moonim is a local-first macOS productivity application that combines task management, recurring daily and weekly routines, scheduled task times, optional task-specific focus durations, focus and break tracking, durable local persistence, and append-only Markdown logging to a user-selected Obsidian vault.
 
 The project responds to a personal workflow that mixes coursework with health, language learning, drawing, movement, and reading. Instead of rewarding only perfect Pomodoro sessions, moonim records completed, cancelled, paused, and early-completed work honestly. Paused time is excluded from active duration, unfinished one-off tasks remain visible, and the interface uses calm, non-punitive progress feedback.
 
-The final implementation is an Electron, React, and TypeScript desktop application. The moonim revision passes 33 automated tests, TypeScript checking, a production build, macOS ARM64 packaging, real Electron QA, packaged-app QA, and a zero-vulnerability dependency audit.
+The final implementation is an Electron, React, and TypeScript desktop application. The current moonim revision passes 43 automated tests, TypeScript checking, a production build, macOS ARM64 packaging, real Electron QA, packaged-app QA, and a zero-vulnerability dependency audit.
 
 ## 2. Research and product direction
 
@@ -34,9 +34,9 @@ Features such as accounts, collaboration, social focus rooms, reward currencies,
 
 The Grill session converted the broad assignment into testable decisions. The main user plans with a mixture of Today, deadlines, life areas, and priority. Starting life areas were defined as Health, Learning, Creative, Movement, and Coursework.
 
-The task lifecycle includes creation, editing, completion, reopening, deletion, and daily recurrence. Daily routines create a new occurrence at local midnight without deleting previous history. Deleting a recurring task asks whether to remove one occurrence or the entire routine.
+The task lifecycle includes creation, editing, completion, reopening, deletion, scheduled times, and daily or weekly recurrence. Daily routines create a new occurrence on each local date, while weekly routines return on the same weekday. A selected due date anchors the first recurring occurrence. Deleting a recurring task asks whether to remove one occurrence or the entire routine.
 
-The timer defaults to 25 minutes of focus, a 5-minute short break, and a 15-minute long break. Pause is resumable and does not count toward active duration. Stop creates a cancelled session with its real active time. Reaching zero or selecting Complete creates a completed session with actual rather than planned duration. The next phase always starts manually after a notification.
+The timer defaults to 25 minutes of focus, a 5-minute short break, and a 15-minute long break. A task may optionally define its own focus duration, so linking a 30-minute drawing task starts a 30-minute timer while tasks without a duration continue using the global default. Pause is resumable and does not count toward active duration. Stop creates a cancelled session with its real active time. Reaching zero or selecting Complete creates a completed session with actual rather than planned duration. The next phase always starts manually after a notification.
 
 The Obsidian requirement became an append-only event outbox. Important task, focus, and break actions first become local events. When a vault is available, those events are appended to predictable daily Markdown files. When it is unavailable, work continues and events remain queued for automatic or manual retry.
 
@@ -50,7 +50,7 @@ Three design artifacts were created and reviewed before production styling:
 
 The initial approved direction used warm paper surfaces, sage accents, serif display type, restrained shadows, and low-pressure language. After the first verified release, a user-supplied interface reference established the final direction: a more deliberately retro dashboard with olive panels, paper texture, typewriter-style typography, outlined controls, and compact geometric spacing. The in-app distraction-free state remains available.
 
-The final layout keeps Today tasks beside the timer, with History and Settings as secondary screens. Focus and Rest history use separate scroll areas and separate local clear controls. The Today’s Growth panel uses the user-supplied Gromit image, which is also the application icon. The progress display can be disabled, and reduced-motion preferences remove nonessential transitions and animation.
+The final layout keeps a switchable Today, This week, This month, or Calendar task field beside the timer, with History and Settings as secondary screens. Focus and Rest history use separate scroll areas and separate local clear controls. The Today’s Growth panel retains the user-supplied Gromit image, while the later user-supplied moonim reading artwork is used for the application icon and renderer brand mark. The progress display can be disabled, dark mode has an explicit contrast palette, and reduced-motion preferences remove nonessential transitions and animation.
 
 ![Initial dashboard wireframe](references/01-dashboard-wireframe.png)
 
@@ -105,13 +105,14 @@ These controls matter because moonim writes user-owned local files. The renderer
 
 ## 6. Testing and verification
 
-The automated suite contains 33 tests across four files. It covers:
+The automated suite contains 43 tests across four files. It covers:
 
 - full task lifecycle and event generation;
 - independent clearing of Focus and Rest history without rewriting the append-only outbox;
 - one-time legacy profile migration without overwriting existing moonim state;
-- daily recurrence and edited recurring templates;
-- Today visibility for unfinished one-off tasks;
+- daily and weekly recurrence, selected start dates, scheduled times, and edited recurring templates;
+- optional task-specific focus durations overriding the global focus default;
+- Today, week, month, and calendar visibility, including overdue work, future-occurrence exclusion from Today, and completed-task calendar placement;
 - timer pause/resume, completion, cancellation, and active-time accounting;
 - Markdown path and record formatting;
 - runtime state and event validation;
@@ -139,7 +140,9 @@ The AI did not make the product decisions independently. I supplied the assignme
 
 Independent reviews were used as quality gates throughout the project. Earlier Gentleday reviews led to fixes in persistence ordering, local-midnight behavior, vault retry, Electron sandboxing, path safety, runtime validation, and Markdown integrity. On 28 September 2026, separate final reviews of the staged moonim revision found no security concerns, logic errors, missing explicit requirements, visual/usability blockers, or unresolved documentation conflicts.
 
-No AI-generated character artwork was used; the Gromit asset was supplied by the user. Credentials and secret values were not included in the repository or report.
+The later scheduling, task-view, supplied-icon, and theme revision also completed fail-closed review. Review fixes covered Today/future-date semantics, calendar placement, daily-summary independence, recurring due-date persistence, and dark-mode contrast including keyboard focus. The final code/security and visual/accessibility verdicts passed with no blockers.
+
+No AI-generated character artwork was used; the Gromit scene and moonim reading icon artwork were supplied by the user. Credentials and secret values were not included in the repository or report.
 
 ## 8. Reflection
 
@@ -154,7 +157,7 @@ If I continued the project, I would add automated desktop tests for crossing mid
 ## 9. Limitations
 
 - The first version targets macOS only.
-- The packaged application is unsigned; it uses the user-supplied Gromit custom icon.
+- The packaged application is unsigned; it uses the user-supplied moonim reading artwork as its custom icon.
 - macOS Focus/Do Not Disturb integration is deferred; the app includes an in-app distraction-free mode.
 - Completion progress is implemented, but streak scoring is deferred.
 - There is no cloud sync, account system, collaboration, or cross-device support.

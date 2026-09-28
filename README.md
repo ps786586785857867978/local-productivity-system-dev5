@@ -1,6 +1,6 @@
 # moonim
 
-moonim is an offline macOS desktop application that combines personal task management, daily routines, focus/break tracking, local persistence, and append-only activity logging to a user-selected Obsidian vault.
+moonim is an offline macOS desktop application that combines personal task management, daily and weekly routines, focus/break tracking, local persistence, and append-only activity logging to a user-selected Obsidian vault.
 
 The project was created for **3IXD Dev 5 — Assignment 1**. Its main design goal is calm, honest progress: interrupted sessions retain their real active time, unfinished one-off tasks remain visible, and missed routines are never framed as failure.
 
@@ -9,9 +9,9 @@ The project was created for **3IXD Dev 5 — Assignment 1**. Its main design goa
 ### Tasks
 
 - Create, edit, complete, reopen, and delete tasks
-- Optional life area, due date, and priority
-- Daily recurring routines with local-midnight rollover
-- Today view that retains unfinished one-off work
+- Optional life area, due date, scheduled time, task-specific focus duration, and priority
+- Daily and weekly recurring routines with local-date rollover
+- Today, This week, This month, and Calendar views; Today retains current and overdue unfinished work
 - Choice between deleting one recurring occurrence or an entire routine
 
 ### Focus and breaks
@@ -20,6 +20,7 @@ The project was created for **3IXD Dev 5 — Assignment 1**. Its main design goa
 - Start, pause, resume, stop/cancel, complete early, or complete automatically at zero
 - Paused time excluded from actual active duration
 - Link focus to a task or enter a free-text activity
+- Use a linked task's optional focus duration instead of the global focus default
 - Restore running and paused timers from persisted timestamps
 - Separate, independently scrollable and clearable focus and rest history
 - Native phase-completion notifications; the next phase starts manually
@@ -46,7 +47,8 @@ Each record includes a stable event ID, local date/time, ISO timestamp, timezone
 
 - Today, History, and Settings screens
 - Retro paper-and-olive visual direction based on the user-supplied interface reference
-- User-supplied Gromit artwork in Today’s Growth and as the macOS application icon
+- User-supplied Gromit artwork in Today’s Growth and user-supplied reading artwork for the moonim brand mark and macOS application icon
+- Complete light/dark operating-system theme support for text, controls, dialogs, and calendar content
 - Optional completion-progress/growth display
 - Reduced-motion setting and operating-system reduced-motion support
 - Keyboard-visible focus indicators and text-labeled controls

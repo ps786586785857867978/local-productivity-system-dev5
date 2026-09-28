@@ -11,7 +11,8 @@ import {
 
 export type Priority = 'low' | 'medium' | 'high'
 export type TaskStatus = 'active' | 'completed' | 'deleted'
-export type Recurrence = 'none' | 'daily'
+export type Recurrence = 'none' | 'daily' | 'weekly'
+export type TaskListView = 'today' | 'week' | 'month' | 'calendar'
 
 export interface Task {
   id: string
@@ -20,6 +21,8 @@ export interface Task {
   lifeArea?: string
   priority?: Priority
   dueDate?: string
+  scheduledTime?: string
+  focusMinutes?: number
   recurrence: Recurrence
   occurrenceDate: string
   status: TaskStatus
@@ -89,10 +92,38 @@ export interface ProductState {
 export function isTaskVisibleToday(task: Task, today: string): boolean {
   if (task.status === 'deleted') return false
   if (task.status === 'active') {
-    return task.recurrence === 'none' || task.occurrenceDate === today
+    return (task.dueDate ?? task.occurrenceDate) <= today
   }
   const completedDate = task.completedAt?.slice(0, 10) ?? task.occurrenceDate
   return completedDate === today
+}
+
+export function isTaskVisibleInView(
+  task: Task,
+  view: TaskListView,
+  today: string,
+  calendarMonth = today.slice(0, 7)
+): boolean {
+  if (task.status === 'deleted') return false
+  if (view === 'today') return isTaskVisibleToday(task, today)
+
+  const scheduledDate = task.dueDate ?? task.occurrenceDate
+  if (view === 'calendar') return scheduledDate.slice(0, 7) === calendarMonth
+
+  const taskDate = task.status === 'completed'
+    ? task.completedAt?.slice(0, 10) ?? task.dueDate ?? task.occurrenceDate
+    : scheduledDate
+
+  if (view === 'month') return taskDate.slice(0, 7) === today.slice(0, 7)
+
+  const todayDate = new Date(`${today}T12:00:00Z`)
+  const mondayOffset = (todayDate.getUTCDay() + 6) % 7
+  const weekStart = new Date(todayDate)
+  weekStart.setUTCDate(todayDate.getUTCDate() - mondayOffset)
+  const weekEnd = new Date(weekStart)
+  weekEnd.setUTCDate(weekStart.getUTCDate() + 6)
+  const formatDate = (date: Date) => date.toISOString().slice(0, 10)
+  return taskDate >= formatDate(weekStart) && taskDate <= formatDate(weekEnd)
 }
 
 export interface CommandContext {
@@ -110,13 +141,15 @@ type TaskCreateCommand = {
   lifeArea?: string
   priority?: Priority
   dueDate?: string
+  scheduledTime?: string
+  focusMinutes?: number
   recurrence: Recurrence
 }
 
 type TaskEditCommand = {
   type: 'task.edit'
   taskId: string
-  changes: Partial<Pick<Task, 'title' | 'lifeArea' | 'priority' | 'dueDate'>>
+  changes: Partial<Pick<Task, 'title' | 'lifeArea' | 'priority' | 'dueDate' | 'scheduledTime' | 'focusMinutes'>>
 }
 
 export type ProductCommand =
@@ -205,7 +238,7 @@ export function applyProductCommand(
   const nowMs = context.nowMs ?? Date.parse(context.now)
 
   if (command.type === 'task.create') {
-    const seriesId = command.recurrence === 'daily' ? context.id() : undefined
+    const seriesId = command.recurrence === 'none' ? undefined : context.id()
     const task: Task = {
       id: context.id(),
       seriesId,
@@ -213,8 +246,10 @@ export function applyProductCommand(
       lifeArea: command.lifeArea,
       priority: command.priority,
       dueDate: command.dueDate,
+      scheduledTime: command.scheduledTime,
+      focusMinutes: validateTaskFocusMinutes(command.focusMinutes),
       recurrence: command.recurrence,
-      occurrenceDate: context.localDate,
+      occurrenceDate: command.recurrence === 'none' ? context.localDate : command.dueDate ?? context.localDate,
       status: 'active',
       createdAt: context.now,
       updatedAt: context.now
@@ -227,12 +262,19 @@ export function applyProductCommand(
 
   if (command.type === 'task.edit') {
     const task = requireTask(state, command.taskId)
-    const changedFields = Object.keys(command.changes).filter(key => {
-      const field = key as keyof typeof command.changes
-      return command.changes[field] !== task[field]
+    const changes = { ...command.changes }
+    if ('focusMinutes' in changes) {
+      changes.focusMinutes = validateTaskFocusMinutes(changes.focusMinutes)
+    }
+    const changedFields = Object.keys(changes).filter(key => {
+      const field = key as keyof typeof changes
+      return changes[field] !== task[field]
     })
     if (changedFields.length === 0) return state
-    Object.assign(task, command.changes, { updatedAt: context.now })
+    Object.assign(task, changes, { updatedAt: context.now })
+    if (task.recurrence !== 'none' && changedFields.includes('dueDate') && task.dueDate) {
+      task.occurrenceDate = task.dueDate
+    }
     if (!task.title.trim()) throw new Error('Task title is required')
     state.outbox.push(event(context, 'task_edited', task.id, task.status, {
       changedFields,
@@ -283,10 +325,13 @@ export function applyProductCommand(
 
   if (command.type === 'timer.start') {
     if (state.activeTimer) throw new Error('A timer is already active')
+    const linkedTask = command.kind === 'focus' && command.taskId
+      ? requireTask(state, command.taskId)
+      : undefined
     const timer = startTimer({
       id: context.id(),
       kind: command.kind,
-      plannedSeconds: command.plannedSeconds,
+      plannedSeconds: linkedTask?.focusMinutes ? linkedTask.focusMinutes * 60 : command.plannedSeconds,
       startedAtMs: nowMs,
       taskId: command.taskId,
       activity: command.activity?.trim() || undefined
@@ -370,21 +415,23 @@ export function applyProductCommand(
     return state
   }
 
-  const dailySeries = new Map<string, Task>()
+  const recurringSeries = new Map<string, Task>()
   for (const task of state.tasks) {
-    if (task.recurrence === 'daily' && task.seriesId) {
-      dailySeries.set(task.seriesId, task)
+    if (task.recurrence !== 'none' && task.seriesId) {
+      recurringSeries.set(task.seriesId, task)
     }
   }
 
-  for (const [seriesId, template] of dailySeries) {
+  for (const [seriesId, template] of recurringSeries) {
     if (state.deletedSeriesIds.includes(seriesId)) continue
     const exists = state.tasks.some(task => task.seriesId === seriesId && task.occurrenceDate === command.localDate)
     if (exists) continue
+    if (!shouldCreateOccurrence(template.recurrence, template.occurrenceDate, command.localDate)) continue
     const occurrence: Task = {
       ...template,
       id: context.id(),
       occurrenceDate: command.localDate,
+      dueDate: template.dueDate ? command.localDate : undefined,
       status: 'active',
       createdAt: context.now,
       updatedAt: context.now,
@@ -393,6 +440,22 @@ export function applyProductCommand(
     state.tasks.push(occurrence)
   }
   return state
+}
+
+function shouldCreateOccurrence(recurrence: Recurrence, previousDate: string, targetDate: string): boolean {
+  const dayMs = 24 * 60 * 60 * 1000
+  const previous = Date.parse(`${previousDate}T00:00:00Z`)
+  const target = Date.parse(`${targetDate}T00:00:00Z`)
+  const elapsedDays = Math.round((target - previous) / dayMs)
+  return recurrence !== 'none' && elapsedDays > 0 && (recurrence === 'daily' || elapsedDays % 7 === 0)
+}
+
+function validateTaskFocusMinutes(value?: number): number | undefined {
+  if (value === undefined) return undefined
+  if (!Number.isInteger(value) || value < 1 || value > 180) {
+    throw new Error('Task focus duration must be between 1 and 180 minutes')
+  }
+  return value
 }
 
 function clampMinutes(value: number): number {
