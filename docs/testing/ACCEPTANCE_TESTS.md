@@ -4,7 +4,7 @@
 **Previous clean-clone baseline:** `2e0e0b6feaf2dcd66e9cd4a66f6a6de9efa7243e` (30-test Gentleday revision)
 **Current moonim suite:** 44 tests plus revised packaging and design artifacts
 **Platform:** macOS on Apple Silicon
-**Current result:** The follow-up dropdown/undated-task revision passes all 44 local tests, typecheck, build, ARM64 packaging, dependency audit, packaged light/dark QA, and independent reviews; its commit-specific clean-clone check is pending
+**Current result:** Follow-up commit `7fd6346fa2bc1769b5a2a651b5a565ca3a8c0e4d` passes clean-clone install, all 44 tests, typecheck, build, ARM64 packaging, dependency audit, packaged dropdown/calendar QA, and independent reviews
 
 ## Automated verification
 
@@ -16,7 +16,7 @@
 | Production build | Pass | `npm run build` |
 | macOS package | Pass | `npm run dist:mac`; `release/mac-arm64/moonim.app` created with custom icon |
 | Source hygiene | Pass | `git diff --check`; final independent code/security and visual/accessibility re-reviews passed |
-| Clean-clone revision | Pending | Prior feature commit `ee3a7e48d26cadc22fa821b6025c8b1886149edd` passed; follow-up dropdown revision is pending commit-specific verification |
+| Clean-clone revision | Pass | Exact follow-up commit `7fd6346fa2bc1769b5a2a651b5a565ca3a8c0e4d` |
 
 ## Acceptance matrix
 
@@ -56,7 +56,7 @@
 | 25 | Keep core behavior independent of networking | No runtime network services; packaged offline QA | Pass |
 | 26 | Cover state, timer, vault, persistence, validation, path safety, migration, recurrence, scheduling, task views, undated-task visibility, and independent history clearing | 44 automated tests | Pass |
 | 27 | Complete the main macOS flow | Development and packaged Electron QA | Pass |
-| 28 | Install, test, build, package, and relaunch from a clean clone | Current feature commit `ee3a7e48d26cadc22fa821b6025c8b1886149edd` plus historical redesign baseline | Pass |
+| 28 | Install, test, build, and package from a clean clone | Current follow-up commit `7fd6346fa2bc1769b5a2a651b5a565ca3a8c0e4d` plus earlier verified baselines | Pass |
 | 29 | Keep assessment screenshots and final sample privacy-safe | Reviewed design artifacts and neutral final submission sample | Pass |
 | 30 | Use records produced by the actual app | Real files written through Electron IPC to the selected vault | Pass |
 
@@ -79,6 +79,8 @@ The packaged application was terminated and relaunched with the same user-data d
 The moonim artifact commit `d70cb4033cd5ff620784b766a6095368f8de6094` was then cloned into a separate scratch directory. That exact checkout passed `npm ci`, all 33 tests, TypeScript checking, the production build, ARM64 macOS packaging, `npm audit --audit-level=high`, and source-diff checks. The clean-clone packaged `moonim.app` passed the neutral real Electron QA flow. After quitting and relaunching that package with the same profile, the renderer/main-process boundary restored five tasks, one completed task, three sessions, 16 outbox events, and no active timer.
 
 The current feature commit `ee3a7e48d26cadc22fa821b6025c8b1886149edd` was cloned into a new scratch directory. That exact checkout passed `npm ci`, all 43 tests, TypeScript checking, the production build, ARM64 packaging, `npm audit --audit-level=high`, and source-diff checks. Its packaged application passed the neutral Electron QA flow. After a normal quit and relaunch with the same isolated profile, it restored five tasks, one completed task, three sessions, 16 queued events, no active timer, and the weekly task’s `09:30` scheduled time and 30-minute focus duration.
+
+The follow-up dropdown commit `7fd6346fa2bc1769b5a2a651b5a565ca3a8c0e4d` was cloned into another fresh directory. It passed `npm ci`, all 44 tests, TypeScript checking, the production build, ARM64 packaging, `npm audit --audit-level=high`, and source-diff checks. Its packaged renderer exposed Today, This week, This month, and Calendar in the labeled dropdown, showed three task rows in the week and month views, and rendered 42 calendar cells with dated task cards in both light and dark modes.
 
 ## Independent review
 
