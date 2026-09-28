@@ -71,7 +71,7 @@ The user needs one calm offline tool that:
 - Review active focus duration, linked task/activity, date, and status.
 - Show optional daily completion progress without points, penalties, or negative messaging.
 - Use a calm growing scene or companion as gentle visual feedback.
-- Keep all text and controls readable in both light and dark operating-system themes.
+- Use the warm light atmosphere by default, offer an explicit dark-theme setting, and keep all text and controls readable in both modes.
 
 ### Distraction control
 
@@ -136,7 +136,7 @@ Completing tasks and focus sessions subtly advances a small visual scene or comp
 
 ### Dashboard
 
-- Left: Today tasks with visible life-area, due-date, priority, and recurrence metadata.
+- Left: a top-aligned **Show tasks for** dropdown with Today, This week, This month, and Calendar, followed by tasks with visible life-area, due-date, priority, and recurrence metadata.
 - Center/right: selected task, focus timer, primary controls, and current focus state.
 - Secondary: compact routine progress and gentle growth indicator.
 - Fast task entry remains visible without dominating the screen.
@@ -152,6 +152,7 @@ Completing tasks and focus sessions subtly advances a small visual scene or comp
 - Focus, short-break, and long-break durations.
 - Life-area management.
 - Obsidian vault location and pending-event status.
+- Light-by-default appearance with an explicit dark-theme option.
 - In-app distraction-free mode.
 - Motion and completion-progress preferences.
 

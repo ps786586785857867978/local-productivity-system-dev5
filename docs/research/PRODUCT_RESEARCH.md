@@ -1,11 +1,11 @@
 # Product research — task management and Pomodoro tools
 
 **Research date:** 2026-09-24  
-**Status:** preliminary product research complete; personal workflow interview pending
+**Status:** completed and carried through the Grill session, PRD, implementation, and final report
 
 ## Scope and product selection
 
-The task-management comparison uses the three products supplied by the user: Todoist, Quire, and Evernote. The focus comparison uses Forest, a likely match for the user’s “PomoTimes” reference called **PomoTime**, and Pomofocus as a third contrasting product. The user should confirm whether PomoTime is the intended “PomoTimes” product before the final report is locked.
+The task-management comparison uses the three products supplied by the user: Todoist, Quire, and Evernote. The focus comparison uses Forest, **PomoTime** (confirmed by the user as the intended “PomoTimes” reference), and Pomofocus as a third contrasting product.
 
 ## Task-management products
 
@@ -115,7 +115,7 @@ Forest turns uninterrupted focus into a growing virtual tree and discourages lea
 
 **Lesson:** emotional feedback can make a timer feel meaningful, but the product should not punish the user for real-life interruptions.
 
-### 2. PomoTime — tentative match for “PomoTimes”
+### 2. PomoTime — confirmed “PomoTimes” reference
 
 The PomoTime listing describes a traditional Pomodoro timer with work and break cycles, visible cycle counts, notifications, and configurable appearance.[5]
 
@@ -214,6 +214,8 @@ Tasks may optionally belong to a small user-defined life area such as study, wor
 The timer should preserve completed, cancelled, and partially completed sessions rather than treating only perfect Pomodoros as meaningful. Users publicly ask for timers that integrate directly with tasks and for tools that retain partial Pomodoros, suggesting that task connection and honest interruption history solve real workflow gaps.[7][8]
 
 ## Questions carried into the personal workflow interview
+
+These questions were subsequently answered during the recorded Grill process in `docs/GRILL_SESSION.md` and converted into the final PRD.
 
 1. Which real-life areas should tasks cover?
 2. Does the user plan mainly by day, priority, project, deadline, or energy?

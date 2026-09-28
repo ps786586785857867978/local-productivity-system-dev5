@@ -12,7 +12,7 @@ moonim is a local-first macOS productivity application that combines task manage
 
 The project responds to a personal workflow that mixes coursework with health, language learning, drawing, movement, and reading. Instead of rewarding only perfect Pomodoro sessions, moonim records completed, cancelled, paused, and early-completed work honestly. Paused time is excluded from active duration, unfinished one-off tasks remain visible, and the interface uses calm, non-punitive progress feedback.
 
-The final implementation is an Electron, React, and TypeScript desktop application. The current moonim revision passes 44 automated tests, TypeScript checking, a production build, macOS ARM64 packaging, real Electron QA, packaged-app QA, and a zero-vulnerability dependency audit.
+The final implementation is an Electron, React, and TypeScript desktop application. The current moonim revision passes 47 automated tests, TypeScript checking, a production build, macOS ARM64 packaging, real Electron QA, packaged-app QA, and a zero-vulnerability dependency audit.
 
 ## 2. Research and product direction
 
@@ -50,7 +50,7 @@ Three design artifacts were created and reviewed before production styling:
 
 The initial approved direction used warm paper surfaces, sage accents, serif display type, restrained shadows, and low-pressure language. After the first verified release, a user-supplied interface reference established the final direction: a more deliberately retro dashboard with olive panels, paper texture, typewriter-style typography, outlined controls, and compact geometric spacing. The in-app distraction-free state remains available.
 
-The final layout keeps a labeled dropdown for Today, This week, This month, or Calendar beside the timer, with History and Settings as secondary screens. Week and month retain active undated work, while Calendar separates it into an Unscheduled tray. Focus and Rest history use separate scroll areas and separate local clear controls. The Today’s Growth panel retains the user-supplied Gromit image, while the later user-supplied moonim reading artwork is used for the application icon and renderer brand mark. The progress display can be disabled, dark mode has an explicit contrast palette, and reduced-motion preferences remove nonessential transitions and animation.
+The final layout puts a labeled dropdown for Today, This week, This month, or Calendar at the top of the task card, replacing the former task-card heading, while History and Settings remain secondary screens. Week and month retain active undated work, while Calendar separates it into an Unscheduled tray. Focus and Rest history use separate scroll areas and separate local clear controls. The Today’s Growth panel retains the user-supplied Gromit image, while the later user-supplied moonim reading artwork is used for the application icon and renderer brand mark. The warm light atmosphere is the default even when macOS uses a dark appearance; dark mode remains explicitly selectable in Settings with its own contrast palette. The progress display can be disabled, and reduced-motion preferences remove nonessential transitions and animation.
 
 ![Initial dashboard wireframe](references/01-dashboard-wireframe.png)
 
@@ -105,7 +105,7 @@ These controls matter because moonim writes user-owned local files. The renderer
 
 ## 6. Testing and verification
 
-The automated suite contains 44 tests across four files. It covers:
+The automated suite contains 47 tests across five files. It covers:
 
 - full task lifecycle and event generation;
 - independent clearing of Focus and Rest history without rewriting the append-only outbox;
@@ -121,6 +121,7 @@ The automated suite contains 44 tests across four files. It covers:
 - temporary-vault reconnection;
 - symlink and vault-root replacement protection;
 - renderer-origin policy.
+- renderer placement of the task-range selector, removal of the superseded heading, legacy theme-less state fallback to light, and persisted explicit dark-mode selection.
 
 The real Electron QA flow created and edited tasks, completed and reopened work, deleted a temporary task, completed one focus session, cancelled another, completed a short break, and inspected the resulting state through the actual preload/main-process boundary. The same flow passed against the packaged `moonim.app` build.
 

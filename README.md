@@ -48,7 +48,8 @@ Each record includes a stable event ID, local date/time, ISO timestamp, timezone
 - Today, History, and Settings screens
 - Retro paper-and-olive visual direction based on the user-supplied interface reference
 - User-supplied Gromit artwork in Today’s Growth and user-supplied reading artwork for the moonim brand mark and macOS application icon
-- Complete light/dark operating-system theme support for text, controls, dialogs, and calendar content
+- A warm light theme by default, with an explicit dark-theme option in Settings
+- Complete light/dark support for text, controls, dialogs, and calendar content
 - Optional completion-progress/growth display
 - Reduced-motion setting and operating-system reduced-motion support
 - Keyboard-visible focus indicators and text-labeled controls
@@ -100,7 +101,7 @@ npm run build
 npm audit
 ```
 
-The verified implementation passes **33 tests across four files** and reports **0 dependency vulnerabilities**.
+The current implementation passes **47 tests across five files** and reports **0 dependency vulnerabilities**.
 
 Detailed results and the acceptance matrix are in [`docs/testing/ACCEPTANCE_TESTS.md`](docs/testing/ACCEPTANCE_TESTS.md).
 

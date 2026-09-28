@@ -71,6 +71,14 @@ describe('runtime validation', () => {
 
   it('accepts a complete ProductState and rejects malformed nested values', () => {
     expect(isProductState(validState())).toBe(true)
+    expect(isProductState({
+      ...validState(),
+      settings: { ...(validState().settings as Record<string, unknown>), theme: 'dark' }
+    })).toBe(true)
+    expect(isProductState({
+      ...validState(),
+      settings: { ...(validState().settings as Record<string, unknown>), theme: 'system' }
+    })).toBe(false)
     expect(isProductState({ ...validState(), tasks: [{ id: 'incomplete' }] })).toBe(false)
     expect(isProductState({ ...validState(), settings: { lifeAreas: [] } })).toBe(false)
   })

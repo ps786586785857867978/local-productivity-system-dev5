@@ -215,3 +215,16 @@ This is a chronological project record. Entries are append-only.
 - A fresh clone of that exact commit passed `npm ci`, all 44 tests, typecheck, production build, ARM64 packaging, dependency audit, and source-diff checks.
 - The clean-clone packaged app exposed all four dropdown options and showed three task rows in This week, three in This month, and 42 Calendar cells with dated task cards.
 - GitHub issue #4 was reconciled against the verified follow-up commit.
+
+## 2026-09-28 18:45 CEST
+
+### Event: final selector placement, light default, and assignment audit
+
+- Status: independently_verified_local
+- Replaced the `Take matters into your own hands` task-card heading with the **Show tasks for** dropdown at the top of the card.
+- Added a persisted appearance preference that defaults to the warm light theme, including for legacy state without a theme field and when macOS itself is dark.
+- Retained dark mode as an explicit Settings option and preserved the previously verified contrast palette.
+- Added product, storage, and renderer regressions for light-default behavior, dark selection, legacy-state compatibility, and selector placement.
+- Local verification passed 47 tests across five files, typecheck, production build, ARM64 packaging, dependency audit with 0 vulnerabilities, source-diff checks, forced-dark-OS packaged QA, and independent code/assignment review.
+- Assignment audit confirmed the combined offline task/timer app, local persistence, Obsidian logging, six-product research, Grill/PRD, three explained design artifacts, README, PDF, app-generated vault sample, and required filenames are present.
+- Remaining checkpoint: commit/push, clean-clone reproduction of the exact revision, final PDF regeneration, GitHub/Obsidian evidence update, and commit-specific review closure.

@@ -377,6 +377,17 @@ describe('product timer seam', () => {
 })
 
 describe('product settings seam', () => {
+  it('defaults to the light theme and can persist an explicit dark theme', () => {
+    expect(createInitialState().settings.theme).toBe('light')
+
+    const state = applyProductCommand(createInitialState(), {
+      type: 'settings.update',
+      changes: { theme: 'dark' }
+    }, context)
+
+    expect(state.settings.theme).toBe('dark')
+  })
+
   it('updates editable life areas and timer defaults', () => {
     const state = applyProductCommand(createInitialState(), {
       type: 'settings.update',

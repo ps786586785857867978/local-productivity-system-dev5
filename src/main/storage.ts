@@ -211,6 +211,7 @@ function isSettings(value: unknown): boolean {
     isPositiveInteger(value.longBreakMinutes) &&
     typeof value.streaksEnabled === 'boolean' &&
     typeof value.reducedMotion === 'boolean' &&
+    (value.theme === undefined || isOneOf(value.theme, ['light', 'dark'] as const)) &&
     (value.vaultPath === undefined || isSingleLine(value.vaultPath, 4096))
 }
 

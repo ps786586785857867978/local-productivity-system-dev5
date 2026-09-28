@@ -217,14 +217,8 @@ export function App() {
     .filter(session => (session.localDate ?? session.startedAt.slice(0, 10)) === today && session.status === 'completed')
     .reduce((total, session) => total + session.activeSeconds, 0)
   const calendarCells = calendarDates(calendarMonth)
-  const taskViewTitle = taskView === 'today'
-    ? 'Take matters into your own hands'
-    : taskView === 'week'
-      ? 'This week at a glance'
-      : taskView === 'month'
-        ? 'Plan the month ahead'
-        : new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' })
-          .format(new Date(`${calendarMonth}-01T12:00:00`))
+  const calendarTitle = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' })
+    .format(new Date(`${calendarMonth}-01T12:00:00`))
 
   const openCreateTask = () => {
     setEditingTask(null)
@@ -330,7 +324,7 @@ export function App() {
   }
 
   return (
-    <div className={`app-shell ${distractionFree ? 'distraction-free' : ''} ${state.settings.reducedMotion ? 'reduced-motion' : ''}`}>
+    <div className={`app-shell theme-${state.settings.theme ?? 'light'} ${distractionFree ? 'distraction-free' : ''} ${state.settings.reducedMotion ? 'reduced-motion' : ''}`}>
       <aside className="sidebar">
         <div className="brand"><img className="brand-mark" src={gromitIcon} alt="" /><strong>moonim</strong></div>
         <nav aria-label="Main navigation">
@@ -356,8 +350,7 @@ export function App() {
 
             <section className="dashboard-grid">
               <div className="task-panel card">
-                <div className="section-heading"><div><span className="kicker">{taskView.toUpperCase()}</span><h2>{taskViewTitle}</h2></div><span className="count-badge">{activeTasks.length} open</span></div>
-                <label className="task-view-select"><span>Show tasks for</span><select value={taskView} onChange={event => setTaskView(event.target.value as TaskListView)}><option value="today">Today</option><option value="week">This week</option><option value="month">This month</option><option value="calendar">Calendar</option></select></label>
+                <div className="section-heading task-heading"><label className="task-view-select"><span>Show tasks for</span><select value={taskView} onChange={event => setTaskView(event.target.value as TaskListView)}><option value="today">Today</option><option value="week">This week</option><option value="month">This month</option><option value="calendar">Calendar</option></select></label><span className="count-badge">{activeTasks.length} open</span></div>
                 {state.settings.streaksEnabled && taskView !== 'calendar' && <>
                   <div className="progress-track"><span style={{ width: `${completionPercent}%` }} /></div>
                   <p className="progress-copy">{completionPercent}% complete · one small step at a time</p>
@@ -366,7 +359,7 @@ export function App() {
                 {taskView === 'calendar' ? (
                   <div className="calendar-view">
                     {unscheduledCalendarTasks.length > 0 && <section className="unscheduled-tasks"><div><strong>Unscheduled</strong><span>Tasks without a date stay visible here.</span></div><div>{unscheduledCalendarTasks.map(task => <button key={task.id} onClick={() => openEditTask(task)}>{task.title}</button>)}</div></section>}
-                    <div className="calendar-toolbar"><button aria-label="Previous month" onClick={() => setCalendarMonth(current => shiftMonth(current, -1))}>←</button><strong>{taskViewTitle}</strong><button aria-label="Next month" onClick={() => setCalendarMonth(current => shiftMonth(current, 1))}>→</button></div>
+                    <div className="calendar-toolbar"><button aria-label="Previous month" onClick={() => setCalendarMonth(current => shiftMonth(current, -1))}>←</button><strong>{calendarTitle}</strong><button aria-label="Next month" onClick={() => setCalendarMonth(current => shiftMonth(current, 1))}>→</button></div>
                     <div className="calendar-weekdays">{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => <span key={day}>{day}</span>)}</div>
                     <div className="calendar-grid">{calendarCells.map(cell => {
                       const dayTasks = visibleTasks.filter(task => !(task.status === 'active' && task.recurrence === 'none' && !task.dueDate) && (task.dueDate ?? task.occurrenceDate) === cell.date)
@@ -438,7 +431,7 @@ export function App() {
               <section className="card setting-card"><span className="kicker">OBSIDIAN</span><h2>Append-only activity vault</h2><p>Task, focus, and break events are stored in predictable Markdown folders. If your vault is unavailable, events stay queued locally and retry every 30 seconds.</p><div className="path-box">{state.settings.vaultPath || 'No vault selected'}</div><div className="button-row"><button className="primary" onClick={chooseVault}>{state.settings.vaultPath ? 'Change vault' : 'Choose vault'}</button>{pendingEvents > 0 && state.settings.vaultPath && <button className="secondary" onClick={() => setSyncPulse(value => value + 1)}>Retry now</button>}</div></section>
               <section className="card setting-card"><span className="kicker">TIMER DEFAULTS</span><h2>Session lengths</h2><div className="duration-grid">{([['focusMinutes', 'Focus'], ['shortBreakMinutes', 'Short break'], ['longBreakMinutes', 'Long break']] as const).map(([key, label]) => <label key={key}>{label}<span><input type="number" min="1" max="180" value={state.settings[key]} onChange={event => run({ type: 'settings.update', changes: { [key]: Number(event.target.value) } })} /> minutes</span></label>)}</div></section>
               <section className="card setting-card wide"><span className="kicker">LIFE AREAS</span><h2>Your editable categories</h2><p>Separate areas with commas. Existing tasks keep their current labels.</p><textarea value={lifeAreaText} onChange={event => setLifeAreaText(event.target.value)} onBlur={() => run({ type: 'settings.update', changes: { lifeAreas: lifeAreaText.split(',') } })} /><div className="tag-preview">{state.settings.lifeAreas.map(area => <span key={area}>{area}</span>)}</div></section>
-              <section className="card setting-card"><span className="kicker">MOTIVATION</span><h2>Gentle progress</h2><label className="switch-row"><span>Show completion progress<small>No penalties after missed days.</small></span><input type="checkbox" checked={state.settings.streaksEnabled} onChange={event => run({ type: 'settings.update', changes: { streaksEnabled: event.target.checked } })} /></label><label className="switch-row"><span>Reduce motion<small>Calmer transitions throughout the app.</small></span><input type="checkbox" checked={state.settings.reducedMotion} onChange={event => run({ type: 'settings.update', changes: { reducedMotion: event.target.checked } })} /></label></section>
+              <section className="card setting-card"><span className="kicker">APPEARANCE</span><h2>Light by default</h2><label className="switch-row"><span>Use dark theme<small>Off keeps moonim's light, warm atmosphere.</small></span><input type="checkbox" checked={(state.settings.theme ?? 'light') === 'dark'} onChange={event => run({ type: 'settings.update', changes: { theme: event.target.checked ? 'dark' : 'light' } })} /></label><label className="switch-row"><span>Show completion progress<small>No penalties after missed days.</small></span><input type="checkbox" checked={state.settings.streaksEnabled} onChange={event => run({ type: 'settings.update', changes: { streaksEnabled: event.target.checked } })} /></label><label className="switch-row"><span>Reduce motion<small>Calmer transitions throughout the app.</small></span><input type="checkbox" checked={state.settings.reducedMotion} onChange={event => run({ type: 'settings.update', changes: { reducedMotion: event.target.checked } })} /></label></section>
               <section className="card setting-card"><span className="kicker">FOCUS MODE</span><h2>Distraction-free fallback</h2><p>moonim uses an in-app quiet mode without requiring privileged macOS access.</p><button className="secondary" onClick={() => setDistractionFree(value => !value)}>{distractionFree ? 'Exit quiet mode' : 'Enter quiet mode'}</button></section>
             </div>
           </section>

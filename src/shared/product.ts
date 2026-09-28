@@ -76,6 +76,7 @@ export interface AppSettings {
   longBreakMinutes: number
   streaksEnabled: boolean
   reducedMotion: boolean
+  theme?: 'light' | 'dark'
   vaultPath?: string
 }
 
@@ -189,7 +190,8 @@ export function createInitialState(): ProductState {
       shortBreakMinutes: 5,
       longBreakMinutes: 15,
       streaksEnabled: true,
-      reducedMotion: false
+      reducedMotion: false,
+      theme: 'light'
     }
   }
 }

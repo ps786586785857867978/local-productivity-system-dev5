@@ -44,12 +44,13 @@ After the first verified release, the user supplied a new interface reference an
 
 - lowercase `moonim` product identity;
 - olive navigation, warm paper surfaces, graph-paper texture, outlined panels, and typewriter-style typography;
-- the exact heading `Take matters into your own hands`;
+- a top-aligned **Show tasks for** dropdown in place of the former `Take matters into your own hands` heading;
 - no tagline beneath the product name;
 - a more spacious focus-description and Start focus layout;
 - independently scrollable and clearable Focus and Rest history;
 - the supplied Gromit scene in Today’s Growth;
 - a padded, Gromit-centred crop for the macOS application icon.
+- a warm light atmosphere by default, with dark mode retained as an explicit Settings option.
 
 The final dashboard evidence is `moonim-dashboard.png`. The visible rebrand does not rename the established `Gentleday/` Obsidian folder because preserving one continuous append-only history is more important than changing an internal storage label.
 
