@@ -4,7 +4,7 @@
 **Previous clean-clone baseline:** `2e0e0b6feaf2dcd66e9cd4a66f6a6de9efa7243e` (30-test Gentleday revision)
 **Current moonim suite:** 33 tests plus revised packaging and design artifacts
 **Platform:** macOS on Apple Silicon
-**Current result:** Local and independent verification passed; moonim clean-clone verification pending its commit
+**Current result:** Local, independent, and clean-clone verification passed for moonim artifact commit `d70cb4033cd5ff620784b766a6095368f8de6094`
 
 ## Automated verification
 
@@ -51,11 +51,11 @@
 | 25 | Keep core behavior independent of networking | No runtime network services; packaged offline QA | Pass |
 | 26 | Cover state, timer, vault, persistence, validation, path safety, migration, and independent history clearing | 33 automated tests | Pass |
 | 27 | Complete the main macOS flow | Development and packaged Electron QA | Pass |
-| 28 | Install, test, build, package, and relaunch from a clean clone | Clean-clone verification | Pending for the moonim commit |
+| 28 | Install, test, build, package, and relaunch from a clean clone | Clean-clone verification at `d70cb4033cd5ff620784b766a6095368f8de6094` | Pass |
 | 29 | Keep assessment screenshots and final sample privacy-safe | Reviewed design artifacts and neutral final submission sample | Pass |
 | 30 | Use records produced by the actual app | Real files written through Electron IPC to the selected vault | Pass |
 
-## Clean-clone baseline and pending moonim verification
+## Clean-clone verification
 
 The private GitHub repository was previously cloned into a new scratch directory at commit `2e0e0b6…`. At that Gentleday revision, the suite contained 30 tests and both named submission artifacts. The following commands completed successfully:
 
@@ -69,7 +69,9 @@ npm run dist:mac
 
 The clean-clone packaged application was then launched with a fresh user-data directory and driven through the real preload/main-process boundary. It created five task records and three sessions: one completed focus session, one cancelled focus session, and one completed short break. Because no vault was selected in this fresh profile, all 16 generated events remained safely queued.
 
-The packaged application was terminated and relaunched with the same user-data directory. The restored state contained five tasks, three sessions, 16 queued events, and no active timer, confirming process-restart persistence. The same real Electron QA flow now passes locally against the packaged moonim revision; a new clean-clone run will replace this baseline after commit.
+The packaged application was terminated and relaunched with the same user-data directory. The restored state contained five tasks, three sessions, 16 queued events, and no active timer, confirming process-restart persistence.
+
+The moonim artifact commit `d70cb4033cd5ff620784b766a6095368f8de6094` was then cloned into a separate scratch directory. That exact checkout passed `npm ci`, all 33 tests, TypeScript checking, the production build, ARM64 macOS packaging, `npm audit --audit-level=high`, and source-diff checks. The clean-clone packaged `moonim.app` passed the neutral real Electron QA flow. After quitting and relaunching that package with the same profile, the renderer/main-process boundary restored five tasks, one completed task, three sessions, 16 outbox events, and no active timer.
 
 ## Independent review
 

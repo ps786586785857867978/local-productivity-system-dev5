@@ -123,7 +123,9 @@ The automated suite contains 33 tests across four files. It covers:
 
 The real Electron QA flow created and edited tasks, completed and reopened work, deleted a temporary task, completed one focus session, cancelled another, completed a short break, and inspected the resulting state through the actual preload/main-process boundary. The same flow passed against the packaged `moonim.app` build.
 
-The earlier Gentleday artifact commit `2e0e0b6feaf2dcd66e9cd4a66f6a6de9efa7243e` was verified from a clean clone with `npm ci`, all 30 tests, type checking, production build, and macOS packaging. Its packaged application was launched with fresh local data and passed the same main workflow. After a normal application quit and relaunch, it restored five tasks, three sessions, 16 queued events, and no active timer. Commit-specific clean-clone verification of the current 33-test moonim revision remains pending until that revision is committed.
+The earlier Gentleday artifact commit `2e0e0b6feaf2dcd66e9cd4a66f6a6de9efa7243e` was verified from a clean clone with `npm ci`, all 30 tests, type checking, production build, and macOS packaging. Its packaged application was launched with fresh local data and passed the same main workflow. After a normal application quit and relaunch, it restored five tasks, three sessions, 16 queued events, and no active timer.
+
+The moonim artifact commit `d70cb4033cd5ff620784b766a6095368f8de6094` was also verified from a separate clean clone. That exact checkout passed `npm ci`, all 33 tests, TypeScript checking, the production build, ARM64 packaging, the dependency audit, and diff checks. Its packaged `moonim.app` passed the neutral real Electron QA flow. After quitting and relaunching with the same profile, it restored five tasks, one completed task, three sessions, 16 outbox events, and no active timer.
 
 Real Obsidian synchronization was also tested using the finished application. The latest verification delivered 16 app-generated events and left zero pending. The original task, focus, and break files remain in the selected vault as evidence.
 
@@ -162,7 +164,7 @@ If I continued the project, I would add automated desktop tests for crossing mid
 
 moonim meets the assignment goal as one functional offline desktop application rather than two disconnected prototypes. It combines personal task management and focus tracking, preserves state across restarts, records honest active duration, and writes durable append-only history into a user-owned Obsidian vault.
 
-The project moved through research, Grill decisions, approved design references, implementation, independent review, real-app evidence generation, an earlier clean-clone baseline, and macOS packaging. The current moonim revision has passed local and independent verification; its commit-specific clean-clone run is the remaining reproducibility checkpoint at this report revision.
+The project moved through research, Grill decisions, approved design references, implementation, independent review, real-app evidence generation, clean-clone verification, and macOS packaging. The moonim artifact is backed by repeatable evidence from exact commit `d70cb4033cd5ff620784b766a6095368f8de6094` rather than screenshots alone.
 
 ## Sources
 

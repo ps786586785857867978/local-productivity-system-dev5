@@ -141,9 +141,9 @@ This is a chronological project record. Entries are append-only.
 
 ## 2026-09-28 08:20 CEST
 
-### Event: moonim redesign implemented and packaged
+### Event: moonim redesign implemented, reviewed, and clean-clone verified
 
-- Status: verification_in_progress
+- Status: completed
 - Renamed the visible and packaged application identity from Gentleday to lowercase `moonim` while retaining legacy local storage and `Gentleday/` vault paths for continuity.
 - Removed the former tagline without replacement and changed the task heading to `Take matters into your own hands`.
 - Remodelled the renderer from the user-supplied retro reference with olive paper tones, typewriter-style typography, bordered panels, and revised spacing around the free-text focus field and Start focus control.
@@ -153,5 +153,9 @@ This is a chronological project record. Entries are append-only.
 - Verification completed so far: 33 tests, typecheck, production build, ARM64 `moonim.app` packaging, real development Electron QA, packaged Electron QA, dependency audit, and source-diff checks passed.
 - A first fail-closed review found legacy-profile migration, untracked asset, icon-composition, responsive-layout, and documentation-attribution gaps; all were corrected.
 - Final independent code/security and requirement/visual/documentation reviews passed with no unresolved security concerns, logic errors, missing requirements, visual/usability errors, or documentation errors.
+- Moonim artifact commit `d70cb4033cd5ff620784b766a6095368f8de6094` was pushed to `origin/main`; local and remote SHAs matched.
+- A separate clean clone of that exact commit passed `npm ci`, all 33 tests, typecheck, production build, ARM64 packaging, dependency audit, and diff checks.
+- The clean-clone packaged `moonim.app` passed neutral real Electron QA. A quit/relaunch with the same profile restored five tasks, one completed task, three sessions, 16 outbox events, and no active timer.
 - GitHub tracking: issue #2, `Rebrand and remodel app as moonim`.
-- Remaining checkpoint: PDF regeneration, commit/push, and clean-clone verification.
+- Regenerated `submission/Saule_3IXD_Dev5_PRD.PDF` from the reconciled moonim report, corrected its metadata, confirmed 10 pages, extracted the expected text, and visually inspected the title, content, image, dashboard, and final pages.
+- Final evidence update prepared for push; issue #2 will be closed against the verified moonim artifact commit.
