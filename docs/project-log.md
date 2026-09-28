@@ -199,3 +199,16 @@ This is a chronological project record. Entries are append-only.
 - A fresh clone of that exact commit passed `npm ci`, all 43 tests, typecheck, production build, ARM64 packaging, dependency audit, and source-diff checks.
 - The clean-clone packaged app passed neutral Electron QA. A quit/relaunch restored five tasks, one completed task, three sessions, 16 queued events, no active timer, and the weekly task’s `09:30` scheduled time plus 30-minute focus duration.
 - GitHub issues #3 and #4 were reconciled against the verified feature commit.
+
+## 2026-09-28 18:05 CEST
+
+### Event: task-range dropdown and undated-task visibility corrected
+
+- Status: independently_verified_local
+- Replaced the four compact task-range buttons with a labeled **Show tasks for** dropdown containing Today, This week, This month, and Calendar.
+- Corrected the broader views so active one-off tasks without a due date do not disappear merely because their creation date is outside the current week or month.
+- Calendar now keeps undated tasks in a dedicated Unscheduled tray rather than falsely placing them on their old creation date.
+- TDD evidence: the undated-task visibility test failed before implementation and now passes.
+- Packaged QA confirmed three visible tasks in This week, three in This month, 42 calendar cells, and visible dated task cards in Calendar.
+- Current verification: 44 tests across four files, typecheck, production build, ARM64 packaging, dependency audit with 0 vulnerabilities, source-diff checks, light/dark packaged screenshots, and independent code and visual reviews pass.
+- Remaining checkpoint: commit/push, follow-up clean-clone verification, GitHub issue reconciliation, and final evidence update.

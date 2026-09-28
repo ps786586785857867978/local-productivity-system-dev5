@@ -188,6 +188,9 @@ export function App() {
   const allActiveTasks = state?.tasks.filter(task => task.status === 'active') ?? []
   const activeTasks = visibleTasks.filter(task => task.status === 'active')
   const completedTasks = visibleTasks.filter(task => task.status === 'completed')
+  const unscheduledCalendarTasks = taskView === 'calendar'
+    ? activeTasks.filter(task => task.recurrence === 'none' && !task.dueDate)
+    : []
   const completedTodayTasks = state?.tasks.filter(task => task.status === 'completed' && isTaskVisibleToday(task, today)) ?? []
   const completionPercent = visibleTasks.length ? Math.round((completedTasks.length / visibleTasks.length) * 100) : 0
   const timerReading = state?.activeTimer ? readTimer(state.activeTimer, nowMs) : null
@@ -354,11 +357,7 @@ export function App() {
             <section className="dashboard-grid">
               <div className="task-panel card">
                 <div className="section-heading"><div><span className="kicker">{taskView.toUpperCase()}</span><h2>{taskViewTitle}</h2></div><span className="count-badge">{activeTasks.length} open</span></div>
-                <div className="task-view-switcher" role="tablist" aria-label="Task list range">
-                  {([['today', 'Today'], ['week', 'This week'], ['month', 'This month'], ['calendar', 'Calendar']] as const).map(([view, label]) => (
-                    <button key={view} role="tab" aria-selected={taskView === view} className={taskView === view ? 'active' : ''} onClick={() => setTaskView(view)}>{label}</button>
-                  ))}
-                </div>
+                <label className="task-view-select"><span>Show tasks for</span><select value={taskView} onChange={event => setTaskView(event.target.value as TaskListView)}><option value="today">Today</option><option value="week">This week</option><option value="month">This month</option><option value="calendar">Calendar</option></select></label>
                 {state.settings.streaksEnabled && taskView !== 'calendar' && <>
                   <div className="progress-track"><span style={{ width: `${completionPercent}%` }} /></div>
                   <p className="progress-copy">{completionPercent}% complete · one small step at a time</p>
@@ -366,10 +365,11 @@ export function App() {
 
                 {taskView === 'calendar' ? (
                   <div className="calendar-view">
+                    {unscheduledCalendarTasks.length > 0 && <section className="unscheduled-tasks"><div><strong>Unscheduled</strong><span>Tasks without a date stay visible here.</span></div><div>{unscheduledCalendarTasks.map(task => <button key={task.id} onClick={() => openEditTask(task)}>{task.title}</button>)}</div></section>}
                     <div className="calendar-toolbar"><button aria-label="Previous month" onClick={() => setCalendarMonth(current => shiftMonth(current, -1))}>←</button><strong>{taskViewTitle}</strong><button aria-label="Next month" onClick={() => setCalendarMonth(current => shiftMonth(current, 1))}>→</button></div>
                     <div className="calendar-weekdays">{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => <span key={day}>{day}</span>)}</div>
                     <div className="calendar-grid">{calendarCells.map(cell => {
-                      const dayTasks = visibleTasks.filter(task => (task.dueDate ?? task.occurrenceDate) === cell.date)
+                      const dayTasks = visibleTasks.filter(task => !(task.status === 'active' && task.recurrence === 'none' && !task.dueDate) && (task.dueDate ?? task.occurrenceDate) === cell.date)
                       return <div className={`calendar-day ${cell.inMonth ? '' : 'outside'} ${cell.date === today ? 'today' : ''}`} key={cell.date}><span>{Number(cell.date.slice(-2))}</span><div>{dayTasks.map(task => <button className={task.status} title={task.title} key={task.id} onClick={() => openEditTask(task)}>{task.scheduledTime ? `${task.scheduledTime} ` : ''}{task.title}</button>)}</div></div>
                     })}</div>
                   </div>

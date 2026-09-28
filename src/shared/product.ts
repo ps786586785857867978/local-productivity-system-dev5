@@ -107,6 +107,9 @@ export function isTaskVisibleInView(
   if (task.status === 'deleted') return false
   if (view === 'today') return isTaskVisibleToday(task, today)
 
+  const isUnscheduledActiveTask = task.status === 'active' && task.recurrence === 'none' && task.dueDate === undefined
+  if (isUnscheduledActiveTask) return true
+
   const scheduledDate = task.dueDate ?? task.occurrenceDate
   if (view === 'calendar') return scheduledDate.slice(0, 7) === calendarMonth
 

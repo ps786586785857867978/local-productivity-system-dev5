@@ -240,6 +240,22 @@ describe('Today visibility seam', () => {
     expect(isTaskVisibleInView(recurringTask('2026-10-05'), 'today', '2026-09-28')).toBe(false)
   })
 
+  it('keeps active unscheduled tasks available in every broader task view', () => {
+    const unscheduledTask: Task = {
+      id: 'unscheduled-task',
+      title: 'Organize references',
+      recurrence: 'none',
+      occurrenceDate: '2026-08-15',
+      status: 'active',
+      createdAt: '2026-08-15T08:00:00.000+02:00',
+      updatedAt: '2026-08-15T08:00:00.000+02:00'
+    }
+
+    expect(isTaskVisibleInView(unscheduledTask, 'week', '2026-09-28')).toBe(true)
+    expect(isTaskVisibleInView(unscheduledTask, 'month', '2026-09-28')).toBe(true)
+    expect(isTaskVisibleInView(unscheduledTask, 'calendar', '2026-09-28', '2026-10')).toBe(true)
+  })
+
   it('places completed calendar tasks by their scheduled date rather than completion date', () => {
     const completedTask: Task = {
       id: 'completed-task',

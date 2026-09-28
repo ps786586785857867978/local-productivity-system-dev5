@@ -12,7 +12,7 @@ moonim is a local-first macOS productivity application that combines task manage
 
 The project responds to a personal workflow that mixes coursework with health, language learning, drawing, movement, and reading. Instead of rewarding only perfect Pomodoro sessions, moonim records completed, cancelled, paused, and early-completed work honestly. Paused time is excluded from active duration, unfinished one-off tasks remain visible, and the interface uses calm, non-punitive progress feedback.
 
-The final implementation is an Electron, React, and TypeScript desktop application. The current moonim revision passes 43 automated tests, TypeScript checking, a production build, macOS ARM64 packaging, real Electron QA, packaged-app QA, and a zero-vulnerability dependency audit.
+The final implementation is an Electron, React, and TypeScript desktop application. The current moonim revision passes 44 automated tests, TypeScript checking, a production build, macOS ARM64 packaging, real Electron QA, packaged-app QA, and a zero-vulnerability dependency audit.
 
 ## 2. Research and product direction
 
@@ -50,7 +50,7 @@ Three design artifacts were created and reviewed before production styling:
 
 The initial approved direction used warm paper surfaces, sage accents, serif display type, restrained shadows, and low-pressure language. After the first verified release, a user-supplied interface reference established the final direction: a more deliberately retro dashboard with olive panels, paper texture, typewriter-style typography, outlined controls, and compact geometric spacing. The in-app distraction-free state remains available.
 
-The final layout keeps a switchable Today, This week, This month, or Calendar task field beside the timer, with History and Settings as secondary screens. Focus and Rest history use separate scroll areas and separate local clear controls. The Today’s Growth panel retains the user-supplied Gromit image, while the later user-supplied moonim reading artwork is used for the application icon and renderer brand mark. The progress display can be disabled, dark mode has an explicit contrast palette, and reduced-motion preferences remove nonessential transitions and animation.
+The final layout keeps a labeled dropdown for Today, This week, This month, or Calendar beside the timer, with History and Settings as secondary screens. Week and month retain active undated work, while Calendar separates it into an Unscheduled tray. Focus and Rest history use separate scroll areas and separate local clear controls. The Today’s Growth panel retains the user-supplied Gromit image, while the later user-supplied moonim reading artwork is used for the application icon and renderer brand mark. The progress display can be disabled, dark mode has an explicit contrast palette, and reduced-motion preferences remove nonessential transitions and animation.
 
 ![Initial dashboard wireframe](references/01-dashboard-wireframe.png)
 
@@ -105,7 +105,7 @@ These controls matter because moonim writes user-owned local files. The renderer
 
 ## 6. Testing and verification
 
-The automated suite contains 43 tests across four files. It covers:
+The automated suite contains 44 tests across four files. It covers:
 
 - full task lifecycle and event generation;
 - independent clearing of Focus and Rest history without rewriting the append-only outbox;

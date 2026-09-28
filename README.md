@@ -11,7 +11,7 @@ The project was created for **3IXD Dev 5 — Assignment 1**. Its main design goa
 - Create, edit, complete, reopen, and delete tasks
 - Optional life area, due date, scheduled time, task-specific focus duration, and priority
 - Daily and weekly recurring routines with local-date rollover
-- Today, This week, This month, and Calendar views; Today retains current and overdue unfinished work
+- A **Show tasks for** dropdown with Today, This week, This month, and Calendar views; Today retains current and overdue unfinished work, while undated tasks remain visible in broader views
 - Choice between deleting one recurring occurrence or an entire routine
 
 ### Focus and breaks

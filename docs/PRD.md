@@ -41,7 +41,8 @@ The user needs one calm offline tool that:
 - Optional life area, due date, scheduled time, task-specific focus duration, and priority.
 - Editable starting life areas: Health, Learning, Creative, Movement, Coursework.
 - Today dashboard combining daily routines, due work, and prioritized work.
-- Switch the task field between Today, This week, This month, and a month calendar without losing task edit/delete access.
+- Use a clearly labeled dropdown to switch the task field between Today, This week, This month, and a month calendar without losing task edit/delete access.
+- Keep active undated one-off tasks visible in week/month lists and in a dedicated Unscheduled calendar tray rather than assigning them to an old creation date.
 - Today includes current and overdue unfinished work but excludes future occurrences, which remain manageable through the broader views.
 - Daily recurring routines that reset at local midnight.
 - Weekly recurring routines that return on the same weekday.
