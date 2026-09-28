@@ -22,7 +22,7 @@ This study compared three original visual directions:
 2. **Warm Paper** — personal and reflective;
 3. **Night Orchard** — immersive and low-light.
 
-The recommended primary direction is **Sage Studio** because it supports a calm desktop dashboard without looking clinical or overly game-like. Warm Paper may inform report/history surfaces. Night Orchard may inform an optional distraction-free focus state.
+The initial recommended direction was **Sage Studio** because it supported a calm desktop dashboard without looking clinical or overly game-like. That direction informed the first verified implementation and is retained here as process evidence. It was later superseded by the final moonim redesign described below.
 
 ## Artifact 03 — Focus-state prototype
 
@@ -36,16 +36,31 @@ This clickable prototype tests the major timer states:
 - completed;
 - vault unavailable.
 
-It helped decide the wording and control hierarchy for each state. It also demonstrates that vault failures should appear as a non-blocking queued-event warning, and that the pause state can feel reassuring without using third-party character artwork.
+It helped decide the wording and control hierarchy for each state. It also demonstrates that vault failures should appear as a non-blocking queued-event warning.
+
+## Final moonim redesign — 28 September 2026
+
+After the first verified release, the user supplied a new interface reference and a local Gromit image. The final renderer therefore uses:
+
+- lowercase `moonim` product identity;
+- olive navigation, warm paper surfaces, graph-paper texture, outlined panels, and typewriter-style typography;
+- the exact heading `Take matters into your own hands`;
+- no tagline beneath the product name;
+- a more spacious focus-description and Start focus layout;
+- independently scrollable and clearable Focus and Rest history;
+- the supplied Gromit scene in Today’s Growth;
+- a padded, Gromit-centred crop for the macOS application icon.
+
+The final dashboard evidence is `moonim-dashboard.png`. The visible rebrand does not rename the established `Gentleday/` Obsidian folder because preserving one continuous append-only history is more important than changing an internal storage label.
 
 ## Shared visual principles
 
-- Original design rather than copying Forest, Todoist, or other researched products
+- Original layout and styling rather than copying Forest, Todoist, or other researched products
 - Warm neutral surfaces with one muted botanical accent
 - Strong timer numerals and clear text labels
 - Gentle progress rather than points, currency, or punishment
 - Minimal motion with reduced-motion support
-- No generated or unlicensed Wallace & Gromit imagery
+- No generated character imagery; the final Gromit asset was supplied by the user for the local coursework application
 
 ## Design quality self-audit
 
@@ -57,11 +72,6 @@ The artifacts were reviewed at desktop viewport sizes after browser rendering.
 
 Annotations in the wireframe were repositioned after visual review so they do not cover task capture, selected-task context, timer controls, or progress.
 
-## Design review checkpoint
+## Design review outcome
 
-Before production styling is finalized, review the three artifacts and confirm:
-
-- Sage Studio as the primary direction;
-- whether Night Orchard should become an optional focus-only theme;
-- whether the dashboard density feels appropriate;
-- whether the abstract pause companion is acceptable until a user-supplied licensed/local animation is available.
+The initial three references were approved before implementation. The later moonim reference superseded their production styling while preserving the validated task/timer hierarchy, quiet-mode option, non-punitive feedback, reduced-motion support, and offline behavior.

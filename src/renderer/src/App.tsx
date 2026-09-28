@@ -10,6 +10,8 @@ import {
   type Task
 } from '../../shared/product'
 import { readTimer, type TimerKind } from '../../shared/timer'
+import gromitIcon from './assets/gromit-icon.png'
+import gromitScene from './assets/gromit.jpg'
 
 type Screen = 'today' | 'history' | 'settings'
 type TaskDraft = {
@@ -169,7 +171,7 @@ export function App() {
   }, [state?.activeTimer?.id, timerReading?.status])
 
   if (!state) {
-    return <div className="loading-shell"><div className="loading-leaf">G</div><p>Opening your gentle workspace…</p></div>
+    return <div className="loading-shell"><img className="loading-gromit" src={gromitIcon} alt="" /><p>Opening moonim…</p></div>
   }
 
   const pendingEvents = state.outbox.filter(item => !item.deliveredAt).length
@@ -271,7 +273,7 @@ export function App() {
   return (
     <div className={`app-shell ${distractionFree ? 'distraction-free' : ''} ${state.settings.reducedMotion ? 'reduced-motion' : ''}`}>
       <aside className="sidebar">
-        <div className="brand"><span className="brand-mark">G</span><div><strong>Gentleday</strong><small>quiet progress, locally</small></div></div>
+        <div className="brand"><img className="brand-mark" src={gromitIcon} alt="" /><strong>moonim</strong></div>
         <nav aria-label="Main navigation">
           <button className={screen === 'today' ? 'active' : ''} onClick={() => setScreen('today')}><span>◌</span>Today</button>
           <button className={screen === 'history' ? 'active' : ''} onClick={() => setScreen('history')}><span>↗</span>History</button>
@@ -287,8 +289,7 @@ export function App() {
       <main>
         {screen === 'today' && (
           <>
-            <header className="page-header">
-              <div><p className="eyebrow">{new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).format(new Date(nowMs))}</p><h1>Make space for what matters.</h1></div>
+            <header className="page-header today-header">
               <button className="primary" onClick={openCreateTask}>＋ Add task</button>
             </header>
 
@@ -296,7 +297,7 @@ export function App() {
 
             <section className="dashboard-grid">
               <div className="task-panel card">
-                <div className="section-heading"><div><span className="kicker">TODAY</span><h2>Your gentle plan</h2></div><span className="count-badge">{activeTasks.length} left</span></div>
+                <div className="section-heading"><div><span className="kicker">TODAY</span><h2>Take matters into your own hands</h2></div><span className="count-badge">{activeTasks.length} left</span></div>
                 {state.settings.streaksEnabled && <>
                   <div className="progress-track"><span style={{ width: `${completionPercent}%` }} /></div>
                   <p className="progress-copy">{completionPercent}% complete · one small step at a time</p>
@@ -327,8 +328,10 @@ export function App() {
                       <button className={timerKind === 'long_break' ? 'active' : ''} onClick={() => setTimerKind('long_break')}>Long break</button>
                     </div>
                     <div className="timer-orbit"><div className="timer-display">{formatDuration(plannedMinutes * 60)}</div><small>ready when you are</small></div>
-                    {timerKind === 'focus' && <div className="timer-fields"><label>Link a task<select value={linkedTaskId} onChange={event => { setLinkedTaskId(event.target.value); const task = activeTasks.find(item => item.id === event.target.value); if (task) setActivity(task.title) }}><option value="">No task selected</option>{activeTasks.map(task => <option value={task.id} key={task.id}>{task.title}</option>)}</select></label><label>Or describe your focus<input value={activity} onChange={event => setActivity(event.target.value)} placeholder="e.g. Mandarin lesson" /></label></div>}
-                    <button className="start-button" onClick={startTimer}>Start {timerKind === 'focus' ? 'focus' : 'break'}</button>
+                    <div className="focus-start-zone">
+                      {timerKind === 'focus' && <div className="timer-fields"><label>Link a task<select value={linkedTaskId} onChange={event => { setLinkedTaskId(event.target.value); const task = activeTasks.find(item => item.id === event.target.value); if (task) setActivity(task.title) }}><option value="">No task selected</option>{activeTasks.map(task => <option value={task.id} key={task.id}>{task.title}</option>)}</select></label><label>Or describe your focus<input value={activity} onChange={event => setActivity(event.target.value)} placeholder="e.g. Mandarin lesson" /></label></div>}
+                      <button className="start-button" onClick={startTimer}>Start {timerKind === 'focus' ? 'focus' : 'break'}</button>
+                    </div>
                   </>
                 ) : (
                   <>
@@ -345,7 +348,7 @@ export function App() {
               </aside>
             </section>
 
-            {state.settings.streaksEnabled && <section className="day-summary card"><div className="growth-scene" aria-hidden="true"><span className="stem" /><span className="leaf one" /><span className="leaf two" /><span className="sun" /></div><div><span className="kicker">TODAY'S GROWTH</span><h3>{completedTasks.length === 0 ? 'The day is still opening.' : completedTasks.length === 1 ? 'One meaningful step is complete.' : `${completedTasks.length} meaningful steps are complete.`}</h3><p>Progress grows from consistency, not pressure.</p></div><div className="summary-stat"><strong>{Math.round(focusedToday / 60)}</strong><span>focused minutes</span></div></section>}
+            {state.settings.streaksEnabled && <section className="day-summary card"><img className="growth-gromit" src={gromitScene} alt="Gromit knitting" /><div><span className="kicker">TODAY'S GROWTH</span><h3>{completedTasks.length === 0 ? 'The day is still opening.' : completedTasks.length === 1 ? 'One meaningful step is complete.' : `${completedTasks.length} meaningful steps are complete.`}</h3><p>Progress grows from consistency, not pressure.</p></div><div className="summary-stat"><strong>{Math.round(focusedToday / 60)}</strong><span>focused minutes</span></div></section>}
           </>
         )}
 
@@ -353,19 +356,19 @@ export function App() {
           <section className="page-stack">
             <header className="page-header"><div><p className="eyebrow">LOCAL HISTORY</p><h1>A record of your progress.</h1></div></header>
             <div className="metrics-grid"><div className="metric card"><span>Completed focus</span><strong>{focusSessions.filter(item => item.status === 'completed').length}</strong></div><div className="metric card"><span>Focused minutes</span><strong>{Math.round(focusSessions.filter(item => item.status === 'completed').reduce((sum, item) => sum + item.activeSeconds, 0) / 60)}</strong></div><div className="metric card"><span>Completed tasks</span><strong>{state.tasks.filter(item => item.status === 'completed').length}</strong></div></div>
-            <div className="history-grid"><div className="card history-list"><div className="section-heading"><div><span className="kicker">FOCUS</span><h2>Sessions</h2></div></div>{focusSessions.length === 0 ? <p className="muted">Completed and cancelled focus sessions will appear here.</p> : [...focusSessions].reverse().map(session => <article key={session.id}><span className={`history-icon ${session.status}`}>{session.status === 'completed' ? '✓' : '×'}</span><div><strong>{session.activity || state.tasks.find(task => task.id === session.taskId)?.title || 'Focused work'}</strong><p>{actualDuration(session.activeSeconds)} active · {session.status}</p></div><time>{new Date(session.startedAt).toLocaleDateString()}</time></article>)}</div><div className="card history-list"><div className="section-heading"><div><span className="kicker">REST</span><h2>Breaks</h2></div></div>{breakSessions.length === 0 ? <p className="muted">Break history stays separate from focus analytics.</p> : [...breakSessions].reverse().map(session => <article key={session.id}><span className="history-icon break">☾</span><div><strong>{session.kind === 'short_break' ? 'Short break' : 'Long break'}</strong><p>{actualDuration(session.activeSeconds)} · {session.status}</p></div><time>{new Date(session.startedAt).toLocaleDateString()}</time></article>)}</div></div>
+            <div className="history-grid"><div className="card history-list"><div className="section-heading"><div><span className="kicker">FOCUS</span><h2>Sessions</h2></div>{focusSessions.length > 0 && <button className="clear-history" onClick={() => window.confirm('Clear focus history from this device? Your append-only Obsidian records will remain.') && run({ type: 'history.clear', kind: 'focus' })}>Clear</button>}</div><div className="history-scroll">{focusSessions.length === 0 ? <p className="muted">Completed and cancelled focus sessions will appear here.</p> : [...focusSessions].reverse().map(session => <article key={session.id}><span className={`history-icon ${session.status}`}>{session.status === 'completed' ? '✓' : '×'}</span><div><strong>{session.activity || state.tasks.find(task => task.id === session.taskId)?.title || 'Focused work'}</strong><p>{actualDuration(session.activeSeconds)} active · {session.status}</p></div><time>{new Date(session.startedAt).toLocaleDateString()}</time></article>)}</div></div><div className="card history-list"><div className="section-heading"><div><span className="kicker">REST</span><h2>Breaks</h2></div>{breakSessions.length > 0 && <button className="clear-history" onClick={() => window.confirm('Clear rest history from this device? Your append-only Obsidian records will remain.') && run({ type: 'history.clear', kind: 'rest' })}>Clear</button>}</div><div className="history-scroll">{breakSessions.length === 0 ? <p className="muted">Break history stays separate from focus analytics.</p> : [...breakSessions].reverse().map(session => <article key={session.id}><span className="history-icon break">☾</span><div><strong>{session.kind === 'short_break' ? 'Short break' : 'Long break'}</strong><p>{actualDuration(session.activeSeconds)} · {session.status}</p></div><time>{new Date(session.startedAt).toLocaleDateString()}</time></article>)}</div></div></div>
           </section>
         )}
 
         {screen === 'settings' && (
           <section className="page-stack settings-page">
-            <header className="page-header"><div><p className="eyebrow">SETTINGS</p><h1>Shape Gentleday around you.</h1></div></header>
+            <header className="page-header"><div><p className="eyebrow">SETTINGS</p><h1>Shape moonim around you.</h1></div></header>
             <div className="settings-grid">
               <section className="card setting-card"><span className="kicker">OBSIDIAN</span><h2>Append-only activity vault</h2><p>Task, focus, and break events are stored in predictable Markdown folders. If your vault is unavailable, events stay queued locally and retry every 30 seconds.</p><div className="path-box">{state.settings.vaultPath || 'No vault selected'}</div><div className="button-row"><button className="primary" onClick={chooseVault}>{state.settings.vaultPath ? 'Change vault' : 'Choose vault'}</button>{pendingEvents > 0 && state.settings.vaultPath && <button className="secondary" onClick={() => setSyncPulse(value => value + 1)}>Retry now</button>}</div></section>
               <section className="card setting-card"><span className="kicker">TIMER DEFAULTS</span><h2>Session lengths</h2><div className="duration-grid">{([['focusMinutes', 'Focus'], ['shortBreakMinutes', 'Short break'], ['longBreakMinutes', 'Long break']] as const).map(([key, label]) => <label key={key}>{label}<span><input type="number" min="1" max="180" value={state.settings[key]} onChange={event => run({ type: 'settings.update', changes: { [key]: Number(event.target.value) } })} /> minutes</span></label>)}</div></section>
               <section className="card setting-card wide"><span className="kicker">LIFE AREAS</span><h2>Your editable categories</h2><p>Separate areas with commas. Existing tasks keep their current labels.</p><textarea value={lifeAreaText} onChange={event => setLifeAreaText(event.target.value)} onBlur={() => run({ type: 'settings.update', changes: { lifeAreas: lifeAreaText.split(',') } })} /><div className="tag-preview">{state.settings.lifeAreas.map(area => <span key={area}>{area}</span>)}</div></section>
               <section className="card setting-card"><span className="kicker">MOTIVATION</span><h2>Gentle progress</h2><label className="switch-row"><span>Show completion progress<small>No penalties after missed days.</small></span><input type="checkbox" checked={state.settings.streaksEnabled} onChange={event => run({ type: 'settings.update', changes: { streaksEnabled: event.target.checked } })} /></label><label className="switch-row"><span>Reduce motion<small>Calmer transitions throughout the app.</small></span><input type="checkbox" checked={state.settings.reducedMotion} onChange={event => run({ type: 'settings.update', changes: { reducedMotion: event.target.checked } })} /></label></section>
-              <section className="card setting-card"><span className="kicker">FOCUS MODE</span><h2>Distraction-free fallback</h2><p>Gentleday uses an in-app quiet mode without requiring privileged macOS access.</p><button className="secondary" onClick={() => setDistractionFree(value => !value)}>{distractionFree ? 'Exit quiet mode' : 'Enter quiet mode'}</button></section>
+              <section className="card setting-card"><span className="kicker">FOCUS MODE</span><h2>Distraction-free fallback</h2><p>moonim uses an in-app quiet mode without requiring privileged macOS access.</p><button className="secondary" onClick={() => setDistractionFree(value => !value)}>{distractionFree ? 'Exit quiet mode' : 'Enter quiet mode'}</button></section>
             </div>
           </section>
         )}

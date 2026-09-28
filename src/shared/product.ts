@@ -137,6 +137,7 @@ export type ProductCommand =
   | { type: 'timer.resume' }
   | { type: 'timer.complete' }
   | { type: 'timer.cancel' }
+  | { type: 'history.clear'; kind: 'focus' | 'rest' }
   | { type: 'settings.update'; changes: Partial<AppSettings> }
 
 export function createInitialState(): ProductState {
@@ -359,6 +360,13 @@ export function applyProductCommand(
       shortBreakMinutes: clampMinutes(command.changes.shortBreakMinutes ?? state.settings.shortBreakMinutes),
       longBreakMinutes: clampMinutes(command.changes.longBreakMinutes ?? state.settings.longBreakMinutes)
     }
+    return state
+  }
+
+  if (command.type === 'history.clear') {
+    state.sessions = state.sessions.filter(session => command.kind === 'focus'
+      ? session.kind !== 'focus'
+      : session.kind === 'focus')
     return state
   }
 

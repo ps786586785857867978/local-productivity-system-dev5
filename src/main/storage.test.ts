@@ -12,7 +12,8 @@ import {
   isLocalhostRendererUrl,
   isLogEvent,
   isProductState,
-  isValidLocalDate
+  isValidLocalDate,
+  migrateLegacyStateFile
 } from './storage'
 
 const temporaryDirectories: string[] = []
@@ -142,6 +143,34 @@ describe('runtime validation', () => {
 })
 
 describe('serialized state storage', () => {
+  it('copies a legacy state file into the moonim profile without removing the original', async () => {
+    const directory = await temporaryDirectory()
+    const legacy = join(directory, 'Gentleday', 'gentleday-state.json')
+    const current = join(directory, 'moonim', 'gentleday-state.json')
+    const state = validState('/vault')
+    await mkdir(join(directory, 'Gentleday'), { recursive: true })
+    await writeFile(legacy, JSON.stringify(state), 'utf8')
+
+    await migrateLegacyStateFile(legacy, current)
+
+    expect(JSON.parse(await readFile(current, 'utf8'))).toEqual(state)
+    expect(JSON.parse(await readFile(legacy, 'utf8'))).toEqual(state)
+  })
+
+  it('does not overwrite an existing moonim state during legacy migration', async () => {
+    const directory = await temporaryDirectory()
+    const legacy = join(directory, 'Gentleday', 'gentleday-state.json')
+    const current = join(directory, 'moonim', 'gentleday-state.json')
+    await mkdir(join(directory, 'Gentleday'), { recursive: true })
+    await mkdir(join(directory, 'moonim'), { recursive: true })
+    await writeFile(legacy, JSON.stringify(validState('/legacy')), 'utf8')
+    await writeFile(current, JSON.stringify(validState('/current')), 'utf8')
+
+    await migrateLegacyStateFile(legacy, current)
+
+    expect(JSON.parse(await readFile(current, 'utf8'))).toEqual(validState('/current'))
+  })
+
   it('serializes concurrent saves and leaves the last state in place without shared temp files', async () => {
     const directory = await temporaryDirectory()
     const target = join(directory, 'state.json')

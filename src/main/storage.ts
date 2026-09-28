@@ -1,5 +1,6 @@
 import { constants } from 'node:fs'
 import {
+  copyFile,
   lstat,
   mkdir,
   open,
@@ -212,6 +213,18 @@ export function isProductState(value: unknown): value is ProductState {
     Array.isArray(value.outbox) && value.outbox.every(isLogEvent) &&
     Array.isArray(value.deletedSeriesIds) && value.deletedSeriesIds.every(id => isSingleLine(id, MAX_ID_LENGTH)) &&
     isSettings(value.settings)
+}
+
+export async function migrateLegacyStateFile(legacy: string, target: string): Promise<void> {
+  if (legacy === target) return
+  await mkdir(dirname(target), { recursive: true })
+  try {
+    await copyFile(legacy, target, constants.COPYFILE_EXCL)
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'ENOENT' || code === 'EEXIST') return
+    throw error
+  }
 }
 
 function createQueue(): {

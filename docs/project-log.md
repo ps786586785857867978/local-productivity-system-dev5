@@ -138,3 +138,20 @@ This is a chronological project record. Entries are append-only.
 - The clean-clone packaged application passed neutral Electron QA with five tasks, three sessions, and 16 queued events.
 - After a normal application quit and relaunch, the same profile restored five tasks, three sessions, 16 queued events, and no active timer.
 - Required files verified: `submission/Saule_3IXD_Dev5_PRD.PDF` and `submission/Saule_Pranculyte_3IXD_Dev5_Obsidiansample.md`.
+
+## 2026-09-28 08:20 CEST
+
+### Event: moonim redesign implemented and packaged
+
+- Status: verification_in_progress
+- Renamed the visible and packaged application identity from Gentleday to lowercase `moonim` while retaining legacy local storage and `Gentleday/` vault paths for continuity.
+- Removed the former tagline without replacement and changed the task heading to `Take matters into your own hands`.
+- Remodelled the renderer from the user-supplied retro reference with olive paper tones, typewriter-style typography, bordered panels, and revised spacing around the free-text focus field and Start focus control.
+- Added independently scrollable Focus and Rest history panels with separate clear actions; clearing local UI history does not rewrite append-only Obsidian Markdown.
+- Added the user-supplied Gromit image to Today’s Growth and generated tracked PNG/ICNS application icons.
+- Added a tested one-time migration that copies an existing Gentleday state file into the moonim profile without deleting the original or overwriting newer moonim state.
+- Verification completed so far: 33 tests, typecheck, production build, ARM64 `moonim.app` packaging, real development Electron QA, packaged Electron QA, dependency audit, and source-diff checks passed.
+- A first fail-closed review found legacy-profile migration, untracked asset, icon-composition, responsive-layout, and documentation-attribution gaps; all were corrected.
+- Final independent code/security and requirement/visual/documentation reviews passed with no unresolved security concerns, logic errors, missing requirements, visual/usability errors, or documentation errors.
+- GitHub tracking: issue #2, `Rebrand and remodel app as moonim`.
+- Remaining checkpoint: PDF regeneration, commit/push, and clean-clone verification.

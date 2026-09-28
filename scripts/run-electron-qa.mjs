@@ -22,11 +22,16 @@ const taskNames = process.env.QA_PROFILE === 'neutral'
       fourthArea: 'Creative',
       editedFourth: '20 minutes of drawing practice (sketchbook)'
     }
-const targets = await fetch(`${endpoint}/json/list`).then(response => response.json())
-const target = targets.find(item => item.type === 'page' && (
-  item.title.includes('Gentleday') || item.url.includes('localhost:5173')
-))
-if (!target) throw new Error(`Gentleday renderer target was not found: ${JSON.stringify(targets)}`)
+let targets = []
+let target
+for (let attempt = 0; attempt < 50 && !target; attempt += 1) {
+  targets = await fetch(`${endpoint}/json/list`).then(response => response.json())
+  target = targets.find(item => item.type === 'page' && (
+    item.title.includes('moonim') || item.url.includes('localhost:5173')
+  ))
+  if (!target) await new Promise(resolve => setTimeout(resolve, 100))
+}
+if (!target) throw new Error(`moonim renderer target was not found: ${JSON.stringify(targets)}`)
 
 const socket = new WebSocket(target.webSocketDebuggerUrl)
 await new Promise((resolve, reject) => {

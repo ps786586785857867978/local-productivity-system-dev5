@@ -1,24 +1,24 @@
-# Gentleday — 3IXD Dev 5 Assignment 1 Report
+# moonim — 3IXD Dev 5 Assignment 1 Report
 
 **Student:** Saule Pranculyte
-**Date:** 27 September 2026
+**Date:** 28 September 2026
 **Repository:** `ps786586785857867978/local-productivity-system-dev5`
-**Product:** Gentleday
+**Product:** moonim
 **Platform:** macOS desktop
 
 ## 1. Executive summary
 
-Gentleday is a local-first macOS productivity application that combines task management, recurring daily routines, focus and break tracking, durable local persistence, and append-only Markdown logging to a user-selected Obsidian vault.
+moonim is a local-first macOS productivity application that combines task management, recurring daily routines, focus and break tracking, durable local persistence, and append-only Markdown logging to a user-selected Obsidian vault.
 
-The project responds to a personal workflow that mixes coursework with health, language learning, drawing, movement, and reading. Instead of rewarding only perfect Pomodoro sessions, Gentleday records completed, cancelled, paused, and early-completed work honestly. Paused time is excluded from active duration, unfinished one-off tasks remain visible, and the interface uses calm, non-punitive progress feedback.
+The project responds to a personal workflow that mixes coursework with health, language learning, drawing, movement, and reading. Instead of rewarding only perfect Pomodoro sessions, moonim records completed, cancelled, paused, and early-completed work honestly. Paused time is excluded from active duration, unfinished one-off tasks remain visible, and the interface uses calm, non-punitive progress feedback.
 
-The final implementation is an Electron, React, and TypeScript desktop application. It passes 30 automated tests, TypeScript checking, a production build, macOS ARM64 packaging, real Electron QA, packaged-app QA, two independent review cycles, and clean-clone verification.
+The final implementation is an Electron, React, and TypeScript desktop application. The moonim revision passes 33 automated tests, TypeScript checking, a production build, macOS ARM64 packaging, real Electron QA, packaged-app QA, and a zero-vulnerability dependency audit.
 
 ## 2. Research and product direction
 
 I compared three task-management products and three focus products before defining the feature set.
 
-Todoist demonstrated the value of fast capture, optional metadata, priority, recurring dates, and a compact view of current work.[1] Quire showed how one task model can support strong hierarchy and multiple views, but also helped define what to exclude from a small personal tool: deep nesting, enterprise reporting, and collaboration.[2] Evernote Tasks showed the importance of keeping tasks connected to context, while reinforcing that Gentleday should not become a second note editor because Obsidian already provides that role.[3]
+Todoist demonstrated the value of fast capture, optional metadata, priority, recurring dates, and a compact view of current work.[1] Quire showed how one task model can support strong hierarchy and multiple views, but also helped define what to exclude from a small personal tool: deep nesting, enterprise reporting, and collaboration.[2] Evernote Tasks showed the importance of keeping tasks connected to context, while reinforcing that moonim should not become a second note editor because Obsidian already provides that role.[3]
 
 Forest showed how a growing visual metaphor can make focus feel meaningful without requiring a competitive score.[4] PomoTime reinforced familiar work/break phases, editable durations, and completion notifications.[5] Pomofocus provided the clearest reference for connecting a timer to a specific task and reviewing session history.[6]
 
@@ -48,23 +48,25 @@ Three design artifacts were created and reviewed before production styling:
 2. a visual style study comparing Sage Studio, Warm Paper, and Night Orchard;
 3. a focus-state prototype showing running, paused, break, completed, and unavailable-vault states.
 
-The approved direction uses Sage Studio for the main interface: warm paper surfaces, sage accents, serif display type, restrained shadows, and low-pressure language. Night Orchard informed the optional distraction-free focus state.
+The initial approved direction used warm paper surfaces, sage accents, serif display type, restrained shadows, and low-pressure language. After the first verified release, a user-supplied interface reference established the final direction: a more deliberately retro dashboard with olive panels, paper texture, typewriter-style typography, outlined controls, and compact geometric spacing. The in-app distraction-free state remains available.
 
-The final layout keeps Today tasks beside the timer, with History and Settings as secondary screens. A small original plant scene communicates progress without points or collectible rewards. The progress display can be disabled, and reduced-motion preferences remove nonessential transitions and animation.
+The final layout keeps Today tasks beside the timer, with History and Settings as secondary screens. Focus and Rest history use separate scroll areas and separate local clear controls. The Today’s Growth panel uses the user-supplied Gromit image, which is also the application icon. The progress display can be disabled, and reduced-motion preferences remove nonessential transitions and animation.
 
-![Approved Gentleday dashboard wireframe](references/01-dashboard-wireframe.png)
+![Initial dashboard wireframe](references/01-dashboard-wireframe.png)
 
 ![Approved Sage Studio visual style study](references/02-style-study.png)
 
 ![Approved focus-state prototype](references/03-focus-state-prototype.png)
 
-No generated or unlicensed character imagery was used. The proposed character-based pause reference was replaced with an original text-and-motion treatment because no suitable user-supplied licensed asset was available.
+![Final moonim dashboard](references/moonim-dashboard.png)
+
+No generated character imagery was used. The final Gromit image was supplied directly by the user for this local coursework application.
 
 ## 5. Technical implementation
 
 ### 5.1 Application architecture
 
-Gentleday uses four main layers:
+moonim uses four main layers:
 
 - **Shared product domain:** task commands, recurrence, settings, event generation, and session history;
 - **Shared timer domain:** timestamp-derived running and paused states, restart reconstruction, completion, and cancellation;
@@ -75,13 +77,13 @@ Privileged file operations remain outside the renderer. A narrow preload bridge 
 
 ### 5.2 Local persistence
 
-Application state is stored as versioned JSON. Saves are serialized, written to unique temporary files, and committed by rename. Invalid on-disk state is quarantined rather than trusted. Runtime validation checks nested tasks, sessions, timer invariants, settings, timestamps, dates, and outbox events.
+Application state is stored as versioned JSON. Saves are serialized, written to unique temporary files, and committed by rename. Invalid on-disk state is quarantined rather than trusted. Runtime validation checks nested tasks, sessions, timer invariants, settings, timestamps, dates, and outbox events. On first moonim launch, an existing Gentleday state file is copied into the new application profile only when moonim does not already have state, preserving tasks, sessions, queued events, timer recovery, and vault settings without deleting the original file.
 
 The running timer is derived from persisted timestamps rather than a decrementing counter. This allows a running or paused session to be reconstructed accurately after the process closes and reopens.
 
 ### 5.3 Obsidian logging
 
-The user selects a vault through the native macOS folder picker. The main process stores and approves the configured location; the renderer cannot redirect writes to an arbitrary path.
+The user selects a vault through the native macOS folder picker. The main process stores and approves the configured location; the renderer cannot redirect writes to an arbitrary path. The visible moonim rebrand deliberately retains the original `Gentleday` vault root so existing append-only records continue in one location.
 
 Events are written beneath:
 
@@ -99,13 +101,15 @@ The vault writer also validates canonical paths, filesystem identity, root repla
 
 The production window uses Chromium sandboxing, context isolation, and disabled renderer Node integration. The application restricts IPC to the expected renderer, blocks unexpected navigation and new windows, applies a Content Security Policy, and accepts development renderer overrides only from loopback HTTP origins.
 
-These controls matter because Gentleday writes user-owned local files. The renderer handles presentation, while the main process owns validation and external side effects.
+These controls matter because moonim writes user-owned local files. The renderer handles presentation, while the main process owns validation and external side effects.
 
 ## 6. Testing and verification
 
-The automated suite contains 30 tests across four files. It covers:
+The automated suite contains 33 tests across four files. It covers:
 
 - full task lifecycle and event generation;
+- independent clearing of Focus and Rest history without rewriting the append-only outbox;
+- one-time legacy profile migration without overwriting existing moonim state;
 - daily recurrence and edited recurring templates;
 - Today visibility for unfinished one-off tasks;
 - timer pause/resume, completion, cancellation, and active-time accounting;
@@ -117,9 +121,9 @@ The automated suite contains 30 tests across four files. It covers:
 - symlink and vault-root replacement protection;
 - renderer-origin policy.
 
-The real Electron QA flow created and edited tasks, completed and reopened work, deleted a temporary task, completed one focus session, cancelled another, completed a short break, and inspected the resulting state through the actual preload/main-process boundary.
+The real Electron QA flow created and edited tasks, completed and reopened work, deleted a temporary task, completed one focus session, cancelled another, completed a short break, and inspected the resulting state through the actual preload/main-process boundary. The same flow passed against the packaged `moonim.app` build.
 
-A clean clone of final artifact commit `2e0e0b6feaf2dcd66e9cd4a66f6a6de9efa7243e` successfully completed `npm ci`, all 30 tests, type checking, production build, and macOS packaging. The clean-clone packaged application was launched with fresh local data and passed the same main workflow. After a normal application quit and relaunch, it restored five tasks, three sessions, 16 queued events, and no active timer.
+The earlier Gentleday artifact commit `2e0e0b6feaf2dcd66e9cd4a66f6a6de9efa7243e` was verified from a clean clone with `npm ci`, all 30 tests, type checking, production build, and macOS packaging. Its packaged application was launched with fresh local data and passed the same main workflow. After a normal application quit and relaunch, it restored five tasks, three sessions, 16 queued events, and no active timer. Commit-specific clean-clone verification of the current 33-test moonim revision remains pending until that revision is committed.
 
 Real Obsidian synchronization was also tested using the finished application. The latest verification delivered 16 app-generated events and left zero pending. The original task, focus, and break files remain in the selected vault as evidence.
 
@@ -131,9 +135,9 @@ I used Hermes Agent with an OpenAI Codex model as a development assistant for re
 
 The AI did not make the product decisions independently. I supplied the assignment direction and personal workflow, answered the Grill questions, approved the design references, and confirmed the implementation direction. Every code and documentation change was kept in Git, reviewed against the PRD, and verified through real commands, tests, builds, packaged application runs, and generated files.
 
-Two independent review passes were used as quality gates. Their findings led to concrete fixes in persistence ordering, local-midnight behavior, vault retry, Electron sandboxing, path safety, runtime validation, and Markdown integrity. The final independent reviews reported no material requirement failures, security concerns, or logic errors.
+Independent reviews were used as quality gates throughout the project. Earlier Gentleday reviews led to fixes in persistence ordering, local-midnight behavior, vault retry, Electron sandboxing, path safety, runtime validation, and Markdown integrity. On 28 September 2026, separate final reviews of the staged moonim revision found no security concerns, logic errors, missing explicit requirements, visual/usability blockers, or unresolved documentation conflicts.
 
-No AI-generated character artwork was used. Credentials and secret values were not included in the repository or report.
+No AI-generated character artwork was used; the Gromit asset was supplied by the user. Credentials and secret values were not included in the repository or report.
 
 ## 8. Reflection
 
@@ -143,12 +147,12 @@ Timestamp-derived timer state was more reliable than saving a displayed countdow
 
 The review process also changed the implementation substantially. The first working version passed its initial unit tests, but independent review found important issues that normal happy-path testing had missed: unfinished one-off tasks disappearing, recurrence templates becoming stale, UTC/local-date mismatches, persistence races, overly trusted renderer input, and a configured vault being forgotten during an outage. Fixing those issues improved both correctness and the depth of the project.
 
-If I continued the project, I would add automated desktop tests for crossing midnight while the app remains open, native folder-picker interaction, notification delivery, and running/paused timer restoration across a full quit and relaunch. I would also create a signed build, a custom icon, richer history filters, and optional supported macOS Focus integration.
+If I continued the project, I would add automated desktop tests for crossing midnight while the app remains open, native folder-picker interaction, notification delivery, and running/paused timer restoration across a full quit and relaunch. I would also create a signed build, richer history filters, and optional supported macOS Focus integration.
 
 ## 9. Limitations
 
 - The first version targets macOS only.
-- The packaged application is unsigned and uses Electron Builder's default icon.
+- The packaged application is unsigned; it uses the user-supplied Gromit custom icon.
 - macOS Focus/Do Not Disturb integration is deferred; the app includes an in-app distraction-free mode.
 - Completion progress is implemented, but streak scoring is deferred.
 - There is no cloud sync, account system, collaboration, or cross-device support.
@@ -156,9 +160,9 @@ If I continued the project, I would add automated desktop tests for crossing mid
 
 ## 10. Conclusion
 
-Gentleday meets the assignment goal as one functional offline desktop application rather than two disconnected prototypes. It combines personal task management and focus tracking, preserves state across restarts, records honest active duration, and writes durable append-only history into a user-owned Obsidian vault.
+moonim meets the assignment goal as one functional offline desktop application rather than two disconnected prototypes. It combines personal task management and focus tracking, preserves state across restarts, records honest active duration, and writes durable append-only history into a user-owned Obsidian vault.
 
-The project moved through research, Grill decisions, approved design references, implementation, independent review, real-app evidence generation, clean-clone verification, and macOS packaging. The result is a small but complete local productivity system shaped around the user's actual routine and assessed through repeatable evidence rather than screenshots alone.
+The project moved through research, Grill decisions, approved design references, implementation, independent review, real-app evidence generation, an earlier clean-clone baseline, and macOS packaging. The current moonim revision has passed local and independent verification; its commit-specific clean-clone run is the remaining reproducibility checkpoint at this report revision.
 
 ## Sources
 

@@ -1,14 +1,14 @@
-# Gentleday — Product Requirements Document
+# moonim — Product Requirements Document
 
 **Version:** 1.0
-**Date:** 2026-09-27
-**Status:** Approved, implemented, and independently verified
+**Date:** 2026-09-28
+**Status:** Approved and implemented; moonim independent review passed, clean-clone verification pending
 
 ## Product name and purpose
 
-**Gentleday** is a local macOS productivity application that combines personal task management with Pomodoro-style focus tracking. It helps one student manage recurring life routines and coursework, focus on one concrete activity at a time, and maintain a trustworthy append-only record in Obsidian.
+**moonim** is a local macOS productivity application that combines personal task management with Pomodoro-style focus tracking. It helps one student manage recurring life routines and coursework, focus on one concrete activity at a time, and maintain a trustworthy append-only record in Obsidian.
 
-The approved product name is **Gentleday**.
+The approved product name is **moonim**.
 
 ## Intended user and problem
 
@@ -192,6 +192,8 @@ Persist:
 - queued Obsidian events and delivery status.
 
 ### Obsidian vault structure
+
+The visible product was renamed after the original storage format was verified. The existing `Gentleday` root is intentionally retained as a compatibility boundary so the rebrand does not fragment or orphan append-only history.
 
 ```text
 Gentleday/

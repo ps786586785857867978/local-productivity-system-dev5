@@ -162,6 +162,29 @@ describe('product timer seam', () => {
     expect(state.sessions.at(-1)?.kind).toBe('short_break')
     expect(state.outbox.at(-1)?.eventType).toBe('break_completed')
   })
+
+  it('clears focus and rest history independently without deleting logged events', () => {
+    let state = createInitialState()
+    state = applyProductCommand(state, {
+      type: 'timer.start', kind: 'focus', plannedSeconds: 1500, activity: 'Design review'
+    }, { ...context, nowMs: 0 })
+    state = applyProductCommand(state, { type: 'timer.complete' }, { ...context, nowMs: 60_000 })
+    state = applyProductCommand(state, {
+      type: 'timer.start', kind: 'short_break', plannedSeconds: 300
+    }, { ...context, nowMs: 60_000 })
+    state = applyProductCommand(state, { type: 'timer.complete' }, { ...context, nowMs: 120_000 })
+
+    const loggedEventCount = state.outbox.length
+    state = applyProductCommand(state, { type: 'history.clear', kind: 'focus' }, context)
+
+    expect(state.sessions).toHaveLength(1)
+    expect(state.sessions[0].kind).toBe('short_break')
+    expect(state.outbox).toHaveLength(loggedEventCount)
+
+    state = applyProductCommand(state, { type: 'history.clear', kind: 'rest' }, context)
+    expect(state.sessions).toHaveLength(0)
+    expect(state.outbox).toHaveLength(loggedEventCount)
+  })
 })
 
 describe('product settings seam', () => {

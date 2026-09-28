@@ -16,7 +16,8 @@ import {
   createStateStore,
   isAllowedRendererUrl,
   isLocalhostRendererUrl,
-  isProductState
+  isProductState,
+  migrateLegacyStateFile
 } from './storage'
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
@@ -27,12 +28,21 @@ const developmentRendererUrl = !app.isPackaged && requestedDevelopmentUrl && isL
   ? requestedDevelopmentUrl
   : null
 const rendererUrl = developmentRendererUrl ?? packagedRendererUrl
-const stateStore = createStateStore(join(app.getPath('userData'), 'gentleday-state.json'))
+const stateFilename = 'gentleday-state.json'
+const currentStatePath = join(app.getPath('userData'), stateFilename)
+const legacyStatePath = join(app.getPath('appData'), 'Gentleday', stateFilename)
+const stateStore = createStateStore(currentStatePath)
+let legacyMigration: Promise<void> | null = null
 
 let mainWindow: BrowserWindow | null = null
 let quitAfterFlush = false
 const vaultAccess = createConfiguredVaultAccess()
 const appendEvents = createSerializedVaultAppender(() => vaultAccess.resolve())
+
+function ensureLegacyMigration(): Promise<void> {
+  legacyMigration ??= migrateLegacyStateFile(legacyStatePath, currentStatePath)
+  return legacyMigration
+}
 
 if (process.env.GENTLEDAY_DEBUG_PORT) {
   app.commandLine.appendSwitch('remote-debugging-port', process.env.GENTLEDAY_DEBUG_PORT)
@@ -50,6 +60,7 @@ function assertTrustedSender(event: IpcMainInvokeEvent): void {
 }
 
 async function loadState(): Promise<ProductState | null> {
+  await ensureLegacyMigration()
   const state = await stateStore.load()
   if (!state) {
     vaultAccess.configure(null)
@@ -71,7 +82,7 @@ async function loadState(): Promise<ProductState | null> {
   return state
 }
 
-function saveState(input: unknown): Promise<void> {
+async function saveState(input: unknown): Promise<void> {
   if (!isProductState(input)) {
     return Promise.reject(new Error('Refusing to save an invalid Gentleday state'))
   }
@@ -79,6 +90,7 @@ function saveState(input: unknown): Promise<void> {
   const configuredVaultPath = vaultAccess.configuredPath()
   if (configuredVaultPath) settings.vaultPath = configuredVaultPath
   else delete settings.vaultPath
+  await ensureLegacyMigration()
   return stateStore.save({ ...input, settings })
 }
 
@@ -94,11 +106,11 @@ function installNavigationGuards(window: BrowserWindow): void {
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1280,
-    height: 820,
+    height: 900,
     minWidth: 980,
     minHeight: 680,
-    title: 'Gentleday',
-    backgroundColor: '#f3f0e7',
+    title: 'moonim',
+    backgroundColor: '#e7e1d5',
     titleBarStyle: 'hiddenInset',
     webPreferences: {
       preload: join(currentDir, '../preload/index.js'),

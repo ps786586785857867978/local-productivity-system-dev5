@@ -1,5 +1,5 @@
 {
-  "name": "gentleday",
+  "name": "moonim",
   "version": "0.1.0",
   "description": "Offline macOS task and focus system with append-only Obsidian logging.",
   "main": "./out/main/index.js",
@@ -44,8 +44,8 @@
     "vitest": "4.1.11"
   },
   "build": {
-    "appId": "com.saule.gentleday",
-    "productName": "Gentleday",
+    "appId": "com.saule.moonim",
+    "productName": "moonim",
     "asar": true,
     "directories": {
       "output": "release"
@@ -56,6 +56,7 @@
     ],
     "mac": {
       "category": "public.app-category.productivity",
+      "icon": "build/icon.icns",
       "target": ["dir"]
     }
   }
