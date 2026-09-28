@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Date:** 2026-09-28
-**Status:** Approved, implemented, and independently verified locally; commit-specific clean-clone verification remains pending
+**Status:** Approved, implemented, independently reviewed, and clean-clone verified at `ee3a7e48d26cadc22fa821b6025c8b1886149edd`
 
 ## Product name and purpose
 

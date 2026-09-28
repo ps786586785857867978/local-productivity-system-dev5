@@ -4,7 +4,7 @@
 **Previous clean-clone baseline:** `2e0e0b6feaf2dcd66e9cd4a66f6a6de9efa7243e` (30-test Gentleday revision)
 **Current moonim suite:** 43 tests plus revised packaging and design artifacts
 **Platform:** macOS on Apple Silicon
-**Current result:** The 43-test scheduling/task-view/icon/theme revision passes local automated, build, packaged-app, light/dark visual QA, and final independent code/security and visual/accessibility re-reviews; commit-specific clean-clone verification is pending
+**Current result:** Feature commit `ee3a7e48d26cadc22fa821b6025c8b1886149edd` passes clean-clone install, all 43 tests, typecheck, build, ARM64 packaging, dependency audit, packaged QA, relaunch persistence, and final independent reviews
 
 ## Automated verification
 
@@ -16,7 +16,7 @@
 | Production build | Pass | `npm run build` |
 | macOS package | Pass | `npm run dist:mac`; `release/mac-arm64/moonim.app` created with custom icon |
 | Source hygiene | Pass | `git diff --check`; final independent code/security and visual/accessibility re-reviews passed |
-| Clean-clone revision | Pending | To be run after the moonim revision is committed and pushed |
+| Clean-clone revision | Pass | Exact feature commit `ee3a7e48d26cadc22fa821b6025c8b1886149edd` |
 
 ## Acceptance matrix
 
@@ -55,7 +55,7 @@
 | 25 | Keep core behavior independent of networking | No runtime network services; packaged offline QA | Pass |
 | 26 | Cover state, timer, vault, persistence, validation, path safety, migration, recurrence, scheduling, task views, and independent history clearing | 43 automated tests | Pass |
 | 27 | Complete the main macOS flow | Development and packaged Electron QA | Pass |
-| 28 | Install, test, build, package, and relaunch from a clean clone | Historical redesign baseline verified at `d70cb4033cd5ff620784b766a6095368f8de6094`; current revision pending | Pending |
+| 28 | Install, test, build, package, and relaunch from a clean clone | Current feature commit `ee3a7e48d26cadc22fa821b6025c8b1886149edd` plus historical redesign baseline | Pass |
 | 29 | Keep assessment screenshots and final sample privacy-safe | Reviewed design artifacts and neutral final submission sample | Pass |
 | 30 | Use records produced by the actual app | Real files written through Electron IPC to the selected vault | Pass |
 
@@ -76,6 +76,8 @@ The clean-clone packaged application was then launched with a fresh user-data di
 The packaged application was terminated and relaunched with the same user-data directory. The restored state contained five tasks, three sessions, 16 queued events, and no active timer, confirming process-restart persistence.
 
 The moonim artifact commit `d70cb4033cd5ff620784b766a6095368f8de6094` was then cloned into a separate scratch directory. That exact checkout passed `npm ci`, all 33 tests, TypeScript checking, the production build, ARM64 macOS packaging, `npm audit --audit-level=high`, and source-diff checks. The clean-clone packaged `moonim.app` passed the neutral real Electron QA flow. After quitting and relaunching that package with the same profile, the renderer/main-process boundary restored five tasks, one completed task, three sessions, 16 outbox events, and no active timer.
+
+The current feature commit `ee3a7e48d26cadc22fa821b6025c8b1886149edd` was cloned into a new scratch directory. That exact checkout passed `npm ci`, all 43 tests, TypeScript checking, the production build, ARM64 packaging, `npm audit --audit-level=high`, and source-diff checks. Its packaged application passed the neutral Electron QA flow. After a normal quit and relaunch with the same isolated profile, it restored five tasks, one completed task, three sessions, 16 queued events, no active timer, and the weekly task’s `09:30` scheduled time and 30-minute focus duration.
 
 ## Independent review
 

@@ -184,7 +184,7 @@ This is a chronological project record. Entries are append-only.
 
 ### Event: task views, supplied icon, and dark-mode corrections implemented
 
-- Status: independently_verified_local
+- Status: completed
 - Replaced the renderer brand mark and packaged PNG/ICNS icons with the newly supplied moonim reading artwork.
 - Added Today, This week, This month, and Calendar switches directly to the task panel, including a six-week month grid with task editing from calendar entries.
 - Replaced “Begin a quiet session” with “Choose what to focus on.”
@@ -195,4 +195,7 @@ This is a chronological project record. Entries are append-only.
 - A later fail-closed review identified an invalid weekly due-date edit path plus low-contrast priority/checkmark/focus-ring states. Recurring due-date edits now update the occurrence anchor, and dark-mode priority, completed-checkmark, and keyboard-focus colors now exceed the relevant contrast thresholds.
 - Final independent code/security re-review passed with no security concerns or logic errors. Final visual/accessibility re-review passed with no blockers.
 - Current verification: 43 tests across four files, typecheck, production build, ARM64 packaging, zero high-severity audit findings, source-diff checks, packaged calendar rendering, and explicit light/dark visual inspection pass.
-- Remaining checkpoint: commit/push, clean-clone verification, GitHub issue update, and final evidence reconciliation.
+- Verified feature commit `ee3a7e48d26cadc22fa821b6025c8b1886149edd` was pushed and matched remote `main` before evidence reconciliation.
+- A fresh clone of that exact commit passed `npm ci`, all 43 tests, typecheck, production build, ARM64 packaging, dependency audit, and source-diff checks.
+- The clean-clone packaged app passed neutral Electron QA. A quit/relaunch restored five tasks, one completed task, three sessions, 16 queued events, no active timer, and the weekly task’s `09:30` scheduled time plus 30-minute focus duration.
+- GitHub issues #3 and #4 were reconciled against the verified feature commit.
