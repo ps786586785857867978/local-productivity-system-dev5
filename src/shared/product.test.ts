@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyProductCommand, createInitialState, isTaskVisibleInView, isTaskVisibleToday, type Task } from './product'
+import { applyProductCommand, createInitialState, dailyAppStreak, isTaskVisibleInView, isTaskVisibleToday, recurringTaskStreak, type Task } from './product'
 
 const context = {
   now: '2026-09-27T08:00:00.000+02:00',
@@ -42,6 +42,33 @@ describe('product task seam', () => {
     state = applyProductCommand(state, { type: 'task.reopen', taskId }, { ...context, now: '2026-09-27T09:00:00.000+02:00' })
     expect(state.tasks[0].status).toBe('active')
     expect(state.outbox.at(-1)?.eventType).toBe('task_reopened')
+  })
+
+  it('creates and edits an optional task description', () => {
+    let state = applyProductCommand(createInitialState(), {
+      type: 'task.create',
+      title: 'Plan portfolio review',
+      description: 'Collect the strongest interaction design examples.',
+      recurrence: 'none'
+    }, context)
+
+    const taskId = state.tasks[0].id
+    expect(state.tasks[0].description).toBe('Collect the strongest interaction design examples.')
+    expect(state.outbox.at(-1)?.details).toMatchObject({
+      task: { description: 'Collect the strongest interaction design examples.' }
+    })
+
+    state = applyProductCommand(state, {
+      type: 'task.edit',
+      taskId,
+      changes: { description: 'Include the final moonim case study.' }
+    }, { ...context, now: '2026-09-27T08:10:00.000+02:00' })
+
+    expect(state.tasks[0].description).toBe('Include the final moonim case study.')
+    expect(state.outbox.at(-1)).toMatchObject({
+      eventType: 'task_edited',
+      details: { changedFields: ['description'] }
+    })
   })
 
   it('creates one new daily occurrence after midnight without deleting yesterday', () => {
@@ -142,6 +169,44 @@ describe('product task seam', () => {
       seriesId: original.seriesId,
       status: 'active'
     })
+  })
+
+  it('creates monthly occurrences from a stable anchor without end-of-month drift', () => {
+    const januaryContext = {
+      ...context,
+      now: '2027-01-31T08:00:00.000+01:00',
+      localDate: '2027-01-31'
+    }
+    let state = applyProductCommand(createInitialState(), {
+      type: 'task.create',
+      title: 'Month-end review',
+      dueDate: '2027-01-31',
+      scheduledTime: '16:00',
+      focusMinutes: 45,
+      recurrence: 'monthly'
+    }, januaryContext)
+    const seriesId = state.tasks[0].seriesId
+
+    state = applyProductCommand(state, { type: 'day.ensure', localDate: '2027-02-28' }, {
+      ...januaryContext, now: '2027-02-28T00:01:00.000+01:00', localDate: '2027-02-28'
+    })
+    state = applyProductCommand(state, { type: 'day.ensure', localDate: '2027-03-28' }, {
+      ...januaryContext, now: '2027-03-28T00:01:00.000+02:00', localDate: '2027-03-28'
+    })
+    state = applyProductCommand(state, { type: 'day.ensure', localDate: '2027-03-31' }, {
+      ...januaryContext, now: '2027-03-31T00:01:00.000+02:00', localDate: '2027-03-31'
+    })
+
+    expect(state.tasks.filter(task => task.seriesId === seriesId).map(task => ({
+      date: task.occurrenceDate,
+      dueDate: task.dueDate,
+      anchor: task.recurrenceAnchorDate,
+      duration: task.focusMinutes
+    }))).toEqual([
+      { date: '2027-01-31', dueDate: '2027-01-31', anchor: '2027-01-31', duration: 45 },
+      { date: '2027-02-28', dueDate: '2027-02-28', anchor: '2027-01-31', duration: 45 },
+      { date: '2027-03-31', dueDate: '2027-03-31', anchor: '2027-01-31', duration: 45 }
+    ])
   })
 
   it('uses the selected due date as the start date for a recurring task', () => {
@@ -275,21 +340,20 @@ describe('Today visibility seam', () => {
 })
 
 describe('product timer seam', () => {
-  it('retains the supplied default for a linked task without a focus duration', () => {
+  it('rejects linking a task that does not define a focus duration', () => {
     let state = applyProductCommand(createInitialState(), {
       type: 'task.create',
       title: 'Review notes',
       recurrence: 'none'
     }, context)
 
-    state = applyProductCommand(state, {
-      type: 'timer.start',
-      kind: 'focus',
-      plannedSeconds: 1500,
-      taskId: state.tasks[0].id
-    }, { ...context, nowMs: 0 })
-
-    expect(state.activeTimer?.plannedSeconds).toBe(1500)
+    expect(() => applyProductCommand(state, {
+        type: 'timer.start',
+        kind: 'focus',
+        plannedSeconds: 1500,
+        taskId: state.tasks[0].id
+      }, { ...context, nowMs: 0 }))
+      .toThrow('Linked tasks require a focus duration')
   })
 
   it('uses an optional task focus duration instead of the global default', () => {
@@ -310,6 +374,32 @@ describe('product timer seam', () => {
 
     expect(state.tasks[0].focusMinutes).toBe(30)
     expect(state.activeTimer?.plannedSeconds).toBe(1800)
+  })
+
+  it('completes an active linked task when its focus session completes', () => {
+    let state = applyProductCommand(createInitialState(), {
+      type: 'task.create',
+      title: 'Finish the interaction prototype',
+      focusMinutes: 30,
+      recurrence: 'none'
+    }, context)
+    const taskId = state.tasks[0].id
+
+    state = applyProductCommand(state, {
+      type: 'timer.start', kind: 'focus', plannedSeconds: 1500, taskId
+    }, { ...context, nowMs: 0 })
+    state = applyProductCommand(state, { type: 'timer.complete' }, {
+      ...context, now: '2026-09-27T08:30:00.000+02:00', nowMs: 1_800_000
+    })
+
+    expect(state.tasks[0]).toMatchObject({
+      id: taskId,
+      status: 'completed',
+      completedAt: '2026-09-27T08:30:00.000+02:00'
+    })
+    expect(state.outbox.slice(-2).map(item => item.eventType)).toEqual([
+      'focus_completed', 'task_completed'
+    ])
   })
 
   it('persists timer transitions and logs actual active focus time', () => {
@@ -396,5 +486,71 @@ describe('product settings seam', () => {
 
     expect(state.settings.lifeAreas).toEqual(['Health', 'Coursework', 'Home'])
     expect(state.settings.focusMinutes).toBe(45)
+  })
+})
+
+describe('daily completion streak seam', () => {
+  it('records a day only when every Today task is complete and revokes it when new work appears', () => {
+    let state = createInitialState()
+    state = applyProductCommand(state, { type: 'task.create', title: 'First step', recurrence: 'none' }, context)
+    state = applyProductCommand(state, { type: 'task.create', title: 'Second step', recurrence: 'none' }, context)
+
+    state = applyProductCommand(state, { type: 'task.complete', taskId: state.tasks[0].id }, context)
+    expect(state.dailyCompletionDates).toEqual([])
+
+    state = applyProductCommand(state, { type: 'task.complete', taskId: state.tasks[1].id }, context)
+    expect(state.dailyCompletionDates).toEqual(['2026-09-27'])
+
+    state = applyProductCommand(state, { type: 'task.create', title: 'Late addition', recurrence: 'none' }, context)
+    expect(state.dailyCompletionDates).toEqual([])
+
+    state = applyProductCommand(state, { type: 'task.complete', taskId: state.tasks[2].id }, context)
+    expect(state.dailyCompletionDates).toEqual(['2026-09-27'])
+  })
+
+  it('calculates consecutive current and best daily streaks', () => {
+    expect(dailyAppStreak(['2026-09-25', '2026-09-26', '2026-09-27'], '2026-09-27')).toEqual({
+      current: 3,
+      best: 3
+    })
+    expect(dailyAppStreak(['2026-09-24', '2026-09-26', '2026-09-27'], '2026-09-28')).toEqual({
+      current: 2,
+      best: 2
+    })
+  })
+})
+
+describe('recurring task streak seam', () => {
+  it('counts completed occurrences, waives deleted dates, and breaks on an incomplete due occurrence', () => {
+    const recurringTasks: Task[] = [
+      { id: '1', seriesId: 'series-1', title: 'Journal', recurrence: 'daily', occurrenceDate: '2026-09-25', status: 'completed', createdAt: context.now, updatedAt: context.now, completedAt: context.now },
+      { id: '2', seriesId: 'series-1', title: 'Journal', recurrence: 'daily', occurrenceDate: '2026-09-26', status: 'deleted', createdAt: context.now, updatedAt: context.now },
+      { id: '3', seriesId: 'series-1', title: 'Journal', recurrence: 'daily', occurrenceDate: '2026-09-27', status: 'completed', createdAt: context.now, updatedAt: context.now, completedAt: context.now },
+      { id: '4', seriesId: 'series-1', title: 'Journal', recurrence: 'daily', occurrenceDate: '2026-09-28', status: 'active', createdAt: context.now, updatedAt: context.now },
+      { id: '5', seriesId: 'series-1', title: 'Journal', recurrence: 'daily', occurrenceDate: '2026-09-30', status: 'active', createdAt: context.now, updatedAt: context.now }
+    ]
+
+    expect(recurringTaskStreak(recurringTasks, 'series-1', '2026-09-29')).toEqual({ current: 0, best: 2 })
+    expect(recurringTaskStreak(recurringTasks, 'series-1', '2026-09-27')).toEqual({ current: 2, best: 2 })
+  })
+
+  it('breaks a streak when an expected recurrence period is missing', () => {
+    const dailyTasks: Task[] = [
+      { id: 'daily-1', seriesId: 'daily-series', title: 'Journal', recurrence: 'daily', occurrenceDate: '2026-09-25', status: 'completed', createdAt: context.now, updatedAt: context.now, completedAt: context.now },
+      { id: 'daily-3', seriesId: 'daily-series', title: 'Journal', recurrence: 'daily', occurrenceDate: '2026-09-27', status: 'completed', createdAt: context.now, updatedAt: context.now, completedAt: context.now }
+    ]
+
+    expect(recurringTaskStreak(dailyTasks, 'daily-series', '2026-09-27')).toEqual({ current: 1, best: 1 })
+    expect(recurringTaskStreak(dailyTasks, 'daily-series', '2026-09-29')).toEqual({ current: 0, best: 1 })
+  })
+
+  it('uses the stable month-end anchor when checking monthly streak continuity', () => {
+    const monthlyTasks: Task[] = [
+      { id: 'month-1', seriesId: 'monthly-series', title: 'Review', recurrence: 'monthly', recurrenceAnchorDate: '2027-01-31', occurrenceDate: '2027-01-31', status: 'completed', createdAt: context.now, updatedAt: context.now, completedAt: context.now },
+      { id: 'month-2', seriesId: 'monthly-series', title: 'Review', recurrence: 'monthly', recurrenceAnchorDate: '2027-01-31', occurrenceDate: '2027-02-28', status: 'completed', createdAt: context.now, updatedAt: context.now, completedAt: context.now },
+      { id: 'month-4', seriesId: 'monthly-series', title: 'Review', recurrence: 'monthly', recurrenceAnchorDate: '2027-01-31', occurrenceDate: '2027-04-30', status: 'completed', createdAt: context.now, updatedAt: context.now, completedAt: context.now }
+    ]
+
+    expect(recurringTaskStreak(monthlyTasks, 'monthly-series', '2027-04-30')).toEqual({ current: 1, best: 2 })
   })
 })

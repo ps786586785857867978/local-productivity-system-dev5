@@ -146,12 +146,16 @@ function isTask(value: unknown): boolean {
   return isSingleLine(value.id, MAX_ID_LENGTH) &&
     isOptionalSingleLine(value.seriesId, MAX_ID_LENGTH) &&
     isBoundedString(value.title, MAX_JSON_STRING_LENGTH) &&
+    (value.description === undefined || isBoundedString(value.description, MAX_JSON_STRING_LENGTH)) &&
     (value.lifeArea === undefined || isBoundedString(value.lifeArea, MAX_METADATA_LENGTH)) &&
     (value.priority === undefined || isOneOf(value.priority, ['low', 'medium', 'high'] as const)) &&
     (value.dueDate === undefined || isValidLocalDate(value.dueDate)) &&
     isOptionalLocalTime(value.scheduledTime) &&
     (value.focusMinutes === undefined || (isPositiveInteger(value.focusMinutes) && value.focusMinutes <= 180)) &&
-    isOneOf(value.recurrence, ['none', 'daily', 'weekly'] as const) &&
+    isOneOf(value.recurrence, ['none', 'daily', 'weekly', 'monthly'] as const) &&
+    (value.recurrence === 'monthly'
+      ? isValidLocalDate(value.recurrenceAnchorDate)
+      : value.recurrenceAnchorDate === undefined) &&
     isValidLocalDate(value.occurrenceDate) &&
     isOneOf(value.status, ['active', 'completed', 'deleted'] as const) &&
     isIsoTimestamp(value.createdAt) &&
@@ -163,7 +167,8 @@ function isTask(value: unknown): boolean {
     (value.recurrence === 'none'
       ? value.seriesId === undefined
       : isSingleLine(value.seriesId, MAX_ID_LENGTH)) &&
-    (value.recurrence !== 'weekly' || value.dueDate === undefined || value.dueDate === value.occurrenceDate)
+    (!isOneOf(value.recurrence, ['weekly', 'monthly'] as const) ||
+      value.dueDate === undefined || value.dueDate === value.occurrenceDate)
 }
 
 function isFocusSession(value: unknown): boolean {
@@ -215,6 +220,13 @@ function isSettings(value: unknown): boolean {
     (value.vaultPath === undefined || isSingleLine(value.vaultPath, 4096))
 }
 
+function isDailyCompletionDates(value: unknown): boolean {
+  if (value === undefined) return true
+  if (!Array.isArray(value) || value.length > MAX_JSON_ENTRIES) return false
+  if (!value.every(isValidLocalDate)) return false
+  return value.every((date, index) => index === 0 || value[index - 1] < date)
+}
+
 export function isProductState(value: unknown): value is ProductState {
   if (!isRecord(value)) return false
   return value.version === 1 &&
@@ -223,6 +235,7 @@ export function isProductState(value: unknown): value is ProductState {
     (value.activeTimer === undefined || isTimerState(value.activeTimer)) &&
     Array.isArray(value.outbox) && value.outbox.every(isLogEvent) &&
     Array.isArray(value.deletedSeriesIds) && value.deletedSeriesIds.every(id => isSingleLine(id, MAX_ID_LENGTH)) &&
+    isDailyCompletionDates(value.dailyCompletionDates) &&
     isSettings(value.settings)
 }
 

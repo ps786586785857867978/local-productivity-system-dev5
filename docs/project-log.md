@@ -232,3 +232,11 @@ This is a chronological project record. Entries are append-only.
 - The clean-clone packaged app passed the complete neutral task/timer flow with five tasks, three sessions, and 16 queued events.
 - Forced-dark-OS packaged inspection confirmed a light default, top-aligned four-option selector, absence of the old heading, and a working explicit dark Settings option.
 - The final PDF was regenerated from the reconciled report and verified separately before issue closure.
+
+### Event: report vault examples corrected after final submission audit
+
+- Status: completed
+- A follow-up reading of the assignment wording found that the PDF report itself must contain vault examples in addition to the separately submitted Markdown sample.
+- Added representative verbatim task-completion, focus-completion, and break-completion excerpts to the report, while retaining the complete 16-event Markdown sample as a separate submission artifact.
+- Updated the sample wrapper title to moonim and explicitly documented why its app-generated files remain under the legacy `Gentleday/` folder.
+- Regenerated and re-verified the PDF after this correction.

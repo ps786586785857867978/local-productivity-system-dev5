@@ -79,6 +79,10 @@ describe('runtime validation', () => {
       ...validState(),
       settings: { ...(validState().settings as Record<string, unknown>), theme: 'system' }
     })).toBe(false)
+    expect(isProductState({ ...validState(), dailyCompletionDates: ['2026-09-27', '2026-09-28'] })).toBe(true)
+    expect(isProductState({ ...validState(), dailyCompletionDates: ['2026-09-28', '2026-09-27'] })).toBe(false)
+    expect(isProductState({ ...validState(), dailyCompletionDates: ['2026-09-27', '2026-09-27'] })).toBe(false)
+    expect(isProductState({ ...validState(), dailyCompletionDates: ['not-a-date'] })).toBe(false)
     expect(isProductState({ ...validState(), tasks: [{ id: 'incomplete' }] })).toBe(false)
     expect(isProductState({ ...validState(), settings: { lifeAreas: [] } })).toBe(false)
   })
@@ -134,6 +138,8 @@ describe('runtime validation', () => {
 
     expect(isProductState({ ...validState(), tasks: [{ ...task, dueDate: '2026-02-29' }] })).toBe(false)
     expect(isProductState({ ...validState(), tasks: [{ ...task, createdAt: 'yesterday' }] })).toBe(false)
+    expect(isProductState({ ...validState(), tasks: [{ ...task, description: 'A useful task note.' }] })).toBe(true)
+    expect(isProductState({ ...validState(), tasks: [{ ...task, description: 42 }] })).toBe(false)
     expect(isProductState({
       ...validState(),
       tasks: [{ ...task, status: 'deleted', completedAt: '2026-09-27T10:05:00.000Z' }]
@@ -195,6 +201,29 @@ describe('runtime validation', () => {
       ...validState(),
       tasks: [{ ...weeklyTask, recurrence: 'daily', dueDate: '2026-09-28' }]
     })).toBe(true)
+  })
+
+  it('requires a valid stable anchor for monthly recurrence', () => {
+    const monthlyTask = {
+      id: 'task-monthly',
+      seriesId: 'series-monthly',
+      title: 'Month-end review',
+      recurrence: 'monthly',
+      recurrenceAnchorDate: '2027-01-31',
+      occurrenceDate: '2027-02-28',
+      dueDate: '2027-02-28',
+      status: 'active',
+      createdAt: '2027-01-31T10:00:00.000Z',
+      updatedAt: '2027-02-28T10:00:00.000Z'
+    }
+
+    expect(isProductState({ ...validState(), tasks: [monthlyTask] })).toBe(true)
+    expect(isProductState({
+      ...validState(), tasks: [{ ...monthlyTask, recurrenceAnchorDate: undefined }]
+    })).toBe(false)
+    expect(isProductState({
+      ...validState(), tasks: [{ ...monthlyTask, recurrenceAnchorDate: '2027-02-30' }]
+    })).toBe(false)
   })
 
   it('requires a real zero-padded calendar date', () => {

@@ -1,6 +1,6 @@
 # moonim
 
-moonim is an offline macOS desktop application that combines personal task management, daily and weekly routines, focus/break tracking, local persistence, and append-only activity logging to a user-selected Obsidian vault.
+moonim is an offline macOS desktop application that combines personal task management, recurring routines, focus tracking, local persistence, and append-only activity logging to a user-selected Obsidian vault.
 
 The project was created for **3IXD Dev 5 — Assignment 1**. Its main design goal is calm, honest progress: interrupted sessions retain their real active time, unfinished one-off tasks remain visible, and missed routines are never framed as failure.
 
@@ -10,7 +10,7 @@ The project was created for **3IXD Dev 5 — Assignment 1**. Its main design goa
 
 - Create, edit, complete, reopen, and delete tasks
 - Optional life area, due date, scheduled time, task-specific focus duration, and priority
-- Daily and weekly recurring routines with local-date rollover
+- Daily, weekly, and monthly recurring routines with cadence-aware streaks
 - A **Show tasks for** dropdown with Today, This week, This month, and Calendar views; Today retains current and overdue unfinished work, while undated tasks remain visible in broader views
 - Choice between deleting one recurring occurrence or an entire routine
 
@@ -19,10 +19,10 @@ The project was created for **3IXD Dev 5 — Assignment 1**. Its main design goa
 - Editable 25-minute focus, 5-minute short break, and 15-minute long break defaults
 - Start, pause, resume, stop/cancel, complete early, or complete automatically at zero
 - Paused time excluded from actual active duration
-- Link focus to a task or enter a free-text activity
-- Use a linked task's optional focus duration instead of the global focus default
+- Link focus only to active tasks that have a configured focus duration, or enter a free-text activity
+- Use the selected task's focus duration instead of the global focus default and complete that task automatically when the session finishes
 - Restore running and paused timers from persisted timestamps
-- Separate, independently scrollable and clearable focus and rest history
+- Review focus sessions, all current non-deleted tasks, daily whole-list streaks, and recurring-task streaks in History
 - Native phase-completion notifications; the next phase starts manually
 
 ### Local and Obsidian persistence
@@ -47,8 +47,9 @@ Each record includes a stable event ID, local date/time, ISO timestamp, timezone
 
 - Today, History, and Settings screens
 - Retro paper-and-olive visual direction based on the user-supplied interface reference
-- User-supplied Gromit artwork in Today’s Growth and user-supplied reading artwork for the moonim brand mark and macOS application icon
+- User-supplied Gromit artwork in Today’s Growth and empty-task views, plus user-supplied reading artwork for the moonim brand mark and macOS application icon
 - A warm light theme by default, with an explicit dark-theme option in Settings
+- A distraction-free quiet mode using a dark blue-gray palette
 - Complete light/dark support for text, controls, dialogs, and calendar content
 - Optional completion-progress/growth display
 - Reduced-motion setting and operating-system reduced-motion support
@@ -84,7 +85,7 @@ cd local-productivity-system-dev5
 npm ci
 ```
 
-The repository is private, so the cloning account must have access.
+The repository is public, so anyone can clone it or use GitHub's **Code → Download ZIP** option. The packaged macOS build remains unsigned and Apple-Silicon-only.
 
 ## Run in development
 
@@ -101,7 +102,7 @@ npm run build
 npm audit
 ```
 
-The current implementation passes **47 tests across five files** and reports **0 dependency vulnerabilities**.
+The current implementation passes **72 tests across five files**.
 
 Detailed results and the acceptance matrix are in [`docs/testing/ACCEPTANCE_TESTS.md`](docs/testing/ACCEPTANCE_TESTS.md).
 
@@ -132,12 +133,14 @@ If the selected folder is temporarily unavailable, normal task and timer behavio
 
 ## Project documentation
 
+The assignment report, acceptance matrix, and files under `submission/` are archival snapshots of the completed coursework. Product development continued afterward, so this README and the current source code describe newer moonim behavior that is intentionally not retrofitted into the submitted assignment artifacts.
+
 - [`docs/PRD.md`](docs/PRD.md) — approved product requirements
 - [`docs/GRILL_SESSION.md`](docs/GRILL_SESSION.md) — product decision interview
 - [`docs/research/PRODUCT_RESEARCH.md`](docs/research/PRODUCT_RESEARCH.md) — cited comparison of six products
 - [`docs/references/DESIGN_NOTES.md`](docs/references/DESIGN_NOTES.md) — design rationale
-- [`docs/testing/ACCEPTANCE_TESTS.md`](docs/testing/ACCEPTANCE_TESTS.md) — verification evidence
-- [`docs/FINAL_REPORT.md`](docs/FINAL_REPORT.md) — cited final report, AI-use statement, reflection, and limitations
+- [`docs/testing/ACCEPTANCE_TESTS.md`](docs/testing/ACCEPTANCE_TESTS.md) — archived assignment verification evidence
+- [`docs/FINAL_REPORT.md`](docs/FINAL_REPORT.md) — archived cited final report, AI-use statement, reflection, and limitations
 - [`docs/project-log.md`](docs/project-log.md) — chronological Git-tracked record
 - [`submission/Saule_3IXD_Dev5_PRD.PDF`](submission/Saule_3IXD_Dev5_PRD.PDF) — required PDF submission artifact
 - [`submission/Saule_Pranculyte_3IXD_Dev5_Obsidiansample.md`](submission/Saule_Pranculyte_3IXD_Dev5_Obsidiansample.md) — required app-generated Obsidian sample

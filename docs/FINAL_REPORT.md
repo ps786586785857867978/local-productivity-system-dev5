@@ -30,15 +30,55 @@ The research produced three main design principles:
 
 Features such as accounts, collaboration, social focus rooms, reward currencies, enterprise views, and cloud synchronization were deliberately excluded.
 
-## 3. Grill session and requirements
+## 3. Grill session and product requirements document (PRD)
 
-The Grill session converted the broad assignment into testable decisions. The main user plans with a mixture of Today, deadlines, life areas, and priority. Starting life areas were defined as Health, Learning, Creative, Movement, and Coursework.
+The Grill session converted the broad assignment into the following short, testable PRD.
 
-The task lifecycle includes creation, editing, completion, reopening, deletion, scheduled times, and daily or weekly recurrence. Daily routines create a new occurrence on each local date, while weekly routines return on the same weekday. A selected due date anchors the first recurring occurrence. Deleting a recurring task asks whether to remove one occurrence or the entire routine.
+### Product name and purpose
 
-The timer defaults to 25 minutes of focus, a 5-minute short break, and a 15-minute long break. A task may optionally define its own focus duration, so linking a 30-minute drawing task starts a 30-minute timer while tasks without a duration continue using the global default. Pause is resumable and does not count toward active duration. Stop creates a cancelled session with its real active time. Reaching zero or selecting Complete creates a completed session with actual rather than planned duration. The next phase always starts manually after a notification.
+**moonim** is an offline macOS productivity system combining task planning, Pomodoro-style focus timing, and user-owned Obsidian activity records in one calm desktop application.
 
-The Obsidian requirement became an append-only event outbox. Important task, focus, and break actions first become local events. When a vault is available, those events are appended to predictable daily Markdown files. When it is unavailable, work continues and events remain queued for automatic or manual retry.
+### Intended user and problem
+
+The primary user is a student or independent creative worker who manages coursework, health, learning, creative work, and movement without wanting accounts, cloud dependency, or separate task and timer applications. The problem is fragmentation: plans, actual focus time, and completed-work evidence otherwise live in disconnected tools.
+
+### Core features
+
+- create, view, edit, complete, reopen, and delete locally persisted tasks;
+- view active work by Today, This week, This month, or Calendar;
+- schedule tasks by date and time and support daily or weekly recurrence;
+- start, pause, resume, stop, and complete linked focus sessions;
+- run configurable short and long breaks and review focus/break history;
+- recover tasks, settings, queued records, and active timer state after restart;
+- append task, focus, and break events to a user-selected Obsidian vault.
+
+### Custom features
+
+- optional per-task focus durations override the global focus duration;
+- undated work remains manageable in broader views and appears under **Unscheduled** in Calendar;
+- a local growth panel provides gentle visual progress without competitive scoring;
+- an offline outbox queues append-only Obsidian events while the vault is unavailable.
+
+### Non-goals
+
+Accounts, collaboration, social focus rooms, reward currencies, enterprise project views, mobile clients, and cloud synchronization are intentionally excluded.
+
+### Main user flow
+
+The user captures a task, optionally assigns its life area, priority, date, time, recurrence, and focus duration, then chooses it in the focus panel. The timer records active and paused time. Completing or stopping the session adds it to history and queues a structured vault event. Task changes follow the same local-first and append-only logging path. If the vault is disconnected, work continues and queued records retry later.
+
+### Testable acceptance criteria
+
+1. All required task lifecycle actions persist after closing and reopening moonim.
+2. Focus sessions support start, pause/resume, cancellation, completion, linked work, configurable durations, and reviewable actual time.
+3. Breaks support configurable durations and produce start/completion records.
+4. Every required task, focus, and break action creates a clear record containing date, time, timezone, event type, status, and relevant entity information.
+5. A user can select the vault; records append beneath predictable task/focus/break folders without overwriting earlier events.
+6. The app remains usable offline and safely queues vault writes during temporary disconnection.
+7. Fresh and legacy theme-less profiles open in the warm light theme; explicit dark selection persists.
+8. Today excludes future recurring occurrences, week/month retain active undated work, and Calendar places undated work under **Unscheduled**.
+
+The task lifecycle includes scheduled times and daily or weekly recurrence. A selected due date anchors the first recurring occurrence, and deleting a recurring task asks whether to remove one occurrence or the entire routine. The timer defaults to 25 minutes of focus, a 5-minute short break, and a 15-minute long break. Pause is resumable and excluded from active duration; stopped and completed sessions retain actual time. The next phase starts manually after a notification.
 
 ## 4. Design development
 
@@ -51,6 +91,10 @@ Three design artifacts were created and reviewed before production styling:
 The initial approved direction used warm paper surfaces, sage accents, serif display type, restrained shadows, and low-pressure language. After the first verified release, a user-supplied interface reference established the final direction: a more deliberately retro dashboard with olive panels, paper texture, typewriter-style typography, outlined controls, and compact geometric spacing. The in-app distraction-free state remains available.
 
 The final layout puts a labeled dropdown for Today, This week, This month, or Calendar at the top of the task card, replacing the former task-card heading, while History and Settings remain secondary screens. Week and month retain active undated work, while Calendar separates it into an Unscheduled tray. Focus and Rest history use separate scroll areas and separate local clear controls. The Today’s Growth panel retains the user-supplied Gromit image, while the later user-supplied moonim reading artwork is used for the application icon and renderer brand mark. The warm light atmosphere is the default even when macOS uses a dark appearance; dark mode remains explicitly selectable in Settings with its own contrast palette. The progress display can be disabled, and reduced-motion preferences remove nonessential transitions and animation.
+
+**Rejected alternative:** I considered delivering separate task and Pomodoro applications, which the assignment allowed. I rejected that approach because it would duplicate persistence and vault configuration, make task-to-session linking less reliable, and fragment the daily workflow. A combined dashboard keeps planning, focused execution, actual-time history, and Obsidian evidence connected while still separating the task and timer domains internally.
+
+The Night Orchard dark-first style was also not selected as the default because it conflicted with the desired warm, low-pressure daytime atmosphere. It remains available as an explicit persisted dark option rather than controlling the initial experience.
 
 ![Initial dashboard wireframe](references/01-dashboard-wireframe.png)
 
@@ -72,6 +116,8 @@ moonim uses four main layers:
 - **Shared timer domain:** timestamp-derived running and paused states, restart reconstruction, completion, and cancellation;
 - **Electron main process:** application lifecycle, state persistence, native folder selection, notifications, validation, and vault writing;
 - **React renderer:** Today, History, Settings, task forms, timer controls, progress, and synchronization feedback.
+
+Electron was selected because the project required an installable offline desktop application with native folder selection, notifications, local filesystem access, and macOS packaging. React supports the stateful dashboard and form-heavy renderer, while TypeScript allows the main process, preload bridge, renderer, tests, persisted state, and Obsidian event schema to share checked domain types. This stack therefore met the desktop requirements without introducing a server or cloud account.
 
 Privileged file operations remain outside the renderer. A narrow preload bridge exposes only the actions needed by the interface.
 
@@ -97,7 +143,58 @@ Each record contains a stable event ID, local date and time, ISO timestamp, time
 
 The vault writer also validates canonical paths, filesystem identity, root replacement, symlinks, event structure, bounded metadata, and Markdown-safe output. Queued events retain their original timestamps during a temporary vault outage.
 
-### 5.4 Desktop security
+### 5.4 Vault evidence examples
+
+The separate submission file `Saule_Pranculyte_3IXD_Dev5_Obsidiansample.md` contains 16 real events generated through the finished application. The following representative excerpts are copied from that sample. They demonstrate the required task, focus, and break records rather than using hand-written mock data.
+
+**Task completion — `Gentleday/Tasks/2026/09/2026-09-27.md`**
+
+```markdown
+## 22:47:18 — task_completed
+- Date: 2026-09-27
+- Time: 22:47:18
+- Timestamp: 2026-09-27T22:47:18.305+02:00
+- Timezone: Europe/Brussels (UTC+02:00)
+- Event type: task_completed
+- Status: completed
+- Entity ID: 8c6dd87a-1605-416a-9f9c-a260e38b129d
+- Event ID: d8bfae7f-8c8f-476f-a5fd-287865644aef
+```
+
+The structured details identify the completed task as **Review Dev 5 report**, in the **Coursework** life area, with its occurrence and completion timestamps.
+
+**Completed focus — `Gentleday/Focus/2026/09/2026-09-27.md`**
+
+```markdown
+## 22:47:21 — focus_completed
+- Timestamp: 2026-09-27T22:47:21.847+02:00
+- Timezone: Europe/Brussels (UTC+02:00)
+- Event type: focus_completed
+- Status: completed
+- plannedSeconds: 1500
+- activeSeconds: 2
+- pausedSeconds: 1
+```
+
+This proves that completed sessions retain planned, active, and paused duration separately and remain linked to their task through the entity details.
+
+**Completed break — `Gentleday/Breaks/2026/09/2026-09-27.md`**
+
+```markdown
+## 22:47:24 — break_completed
+- Timestamp: 2026-09-27T22:47:24.129+02:00
+- Timezone: Europe/Brussels (UTC+02:00)
+- Event type: break_completed
+- Status: completed
+- kind: short_break
+- plannedSeconds: 300
+- activeSeconds: 1
+- pausedSeconds: 0
+```
+
+The complete Markdown sample also includes creation, editing, reopening, deletion, focus-start, focus-cancellation, and break-start records with stable IDs and structured details.
+
+### 5.5 Desktop security
 
 The production window uses Chromium sandboxing, context isolation, and disabled renderer Node integration. The application restricts IPC to the expected renderer, blocks unexpected navigation and new windows, applies a Content Security Policy, and accepts development renderer overrides only from loopback HTTP origins.
 

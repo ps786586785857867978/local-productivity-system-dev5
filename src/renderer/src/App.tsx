@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
   applyProductCommand,
   createInitialState,
+  dailyAppStreak,
   isTaskVisibleInView,
   isTaskVisibleToday,
+  recurringTaskStreak,
   type Priority,
   type ProductCommand,
   type ProductState,
@@ -12,12 +14,14 @@ import {
   type TaskListView
 } from '../../shared/product'
 import { readTimer, type TimerKind } from '../../shared/timer'
+import gromitEmpty from './assets/gromit-empty.png'
 import gromitIcon from './assets/gromit-icon.png'
 import gromitScene from './assets/gromit.jpg'
 
 type Screen = 'today' | 'history' | 'settings'
 type TaskDraft = {
   title: string
+  description: string
   lifeArea: string
   priority: '' | Priority
   dueDate: string
@@ -27,7 +31,7 @@ type TaskDraft = {
 }
 
 const emptyDraft = (area = ''): TaskDraft => ({
-  title: '', lifeArea: area, priority: '', dueDate: '', scheduledTime: '', focusMinutes: '', recurrence: 'none'
+  title: '', description: '', lifeArea: area, priority: '', dueDate: '', scheduledTime: '', focusMinutes: '', recurrence: 'none'
 })
 
 function pad(value: number): string {
@@ -76,6 +80,13 @@ function friendlyTime(value?: string): string | null {
     .format(new Date(2000, 0, 1, hours, minutes))
 }
 
+function recurrenceLabel(recurrence: Recurrence): string {
+  if (recurrence === 'daily') return 'Daily'
+  if (recurrence === 'weekly') return 'Weekly'
+  if (recurrence === 'monthly') return 'Monthly'
+  return 'Does not repeat'
+}
+
 function shiftMonth(month: string, amount: number): string {
   const date = new Date(`${month}-01T12:00:00`)
   date.setMonth(date.getMonth() + amount)
@@ -109,6 +120,8 @@ export function App() {
   const [nowMs, setNowMs] = useState(Date.now())
   const [taskDialogOpen, setTaskDialogOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const [viewingTask, setViewingTask] = useState<Task | null>(null)
+  const [deletingTask, setDeletingTask] = useState<Task | null>(null)
   const [draft, setDraft] = useState<TaskDraft>(emptyDraft())
   const [timerKind, setTimerKind] = useState<TimerKind>('focus')
   const [linkedTaskId, setLinkedTaskId] = useState('')
@@ -186,12 +199,20 @@ export function App() {
     isTaskVisibleInView(task, taskView, today, calendarMonth)
   ) ?? [], [state?.tasks, taskView, today, calendarMonth])
   const allActiveTasks = state?.tasks.filter(task => task.status === 'active') ?? []
+  const focusEligibleTasks = allActiveTasks.filter(task => task.focusMinutes !== undefined)
+  useEffect(() => {
+    if (linkedTaskId && !focusEligibleTasks.some(task => task.id === linkedTaskId)) {
+      setLinkedTaskId('')
+    }
+  }, [linkedTaskId, state?.tasks])
   const activeTasks = visibleTasks.filter(task => task.status === 'active')
   const completedTasks = visibleTasks.filter(task => task.status === 'completed')
   const unscheduledCalendarTasks = taskView === 'calendar'
     ? activeTasks.filter(task => task.recurrence === 'none' && !task.dueDate)
     : []
   const completedTodayTasks = state?.tasks.filter(task => task.status === 'completed' && isTaskVisibleToday(task, today)) ?? []
+  const todayTasks = state?.tasks.filter(task => isTaskVisibleToday(task, today)) ?? []
+  const todayListComplete = todayTasks.length > 0 && todayTasks.every(task => task.status === 'completed')
   const completionPercent = visibleTasks.length ? Math.round((completedTasks.length / visibleTasks.length) * 100) : 0
   const timerReading = state?.activeTimer ? readTimer(state.activeTimer, nowMs) : null
 
@@ -212,10 +233,26 @@ export function App() {
 
   const pendingEvents = state.outbox.filter(item => !item.deliveredAt).length
   const focusSessions = state.sessions.filter(session => session.kind === 'focus')
-  const breakSessions = state.sessions.filter(session => session.kind !== 'focus')
-  const focusedToday = focusSessions
-    .filter(session => (session.localDate ?? session.startedAt.slice(0, 10)) === today && session.status === 'completed')
-    .reduce((total, session) => total + session.activeSeconds, 0)
+  const currentTasks = state.tasks
+    .filter(task => task.status !== 'deleted')
+    .sort((left, right) => {
+      if (left.status !== right.status) return left.status === 'active' ? -1 : 1
+      return right.updatedAt.localeCompare(left.updatedAt)
+    })
+  const dailyStreak = dailyAppStreak(state.dailyCompletionDates ?? [], today)
+  const recurringSeries = [...state.tasks.reduce((series, task) => {
+    if (!task.seriesId || task.recurrence === 'none' || task.status === 'deleted' || state.deletedSeriesIds.includes(task.seriesId)) return series
+    const current = series.get(task.seriesId)
+    if (!current || task.occurrenceDate > current.occurrenceDate ||
+      (task.occurrenceDate === current.occurrenceDate && task.updatedAt > current.updatedAt)) {
+      series.set(task.seriesId, task)
+    }
+    return series
+  }, new Map<string, Task>()).values()].map(task => ({
+    task,
+    streak: recurringTaskStreak(state.tasks, task.seriesId!, today),
+    unit: task.recurrence === 'daily' ? 'day' : task.recurrence === 'weekly' ? 'week' : 'month'
+  }))
   const calendarCells = calendarDates(calendarMonth)
   const calendarTitle = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' })
     .format(new Date(`${calendarMonth}-01T12:00:00`))
@@ -227,9 +264,11 @@ export function App() {
   }
 
   const openEditTask = (task: Task) => {
+    setViewingTask(null)
     setEditingTask(task)
     setDraft({
       title: task.title,
+      description: task.description ?? '',
       lifeArea: task.lifeArea ?? state.settings.lifeAreas[0] ?? '',
       priority: task.priority ?? '',
       dueDate: task.dueDate ?? '',
@@ -255,6 +294,7 @@ export function App() {
         taskId: editingTask.id,
         changes: {
           title: draft.title,
+          description: draft.description,
           lifeArea: draft.lifeArea || undefined,
           priority: draft.priority || undefined,
           dueDate: draft.dueDate || undefined,
@@ -266,6 +306,7 @@ export function App() {
       run({
         type: 'task.create',
         title: draft.title,
+        description: draft.description,
         lifeArea: draft.lifeArea || undefined,
         priority: draft.priority || undefined,
         dueDate: draft.dueDate || undefined,
@@ -277,21 +318,18 @@ export function App() {
     setTaskDialogOpen(false)
   }
 
-  const deleteTask = (task: Task) => {
-    let scope: 'occurrence' | 'series' = 'occurrence'
-    if (task.recurrence !== 'none') {
-      const cadence = task.recurrence === 'daily' ? 'daily' : 'weekly'
-      scope = window.confirm(`Delete the whole ${cadence} routine? Choose Cancel to delete only this occurrence.`)
-        ? 'series'
-        : 'occurrence'
-    }
-    const message = scope === 'series'
-      ? 'Delete this routine and prevent future occurrences?'
-      : 'Delete this task occurrence?'
-    if (window.confirm(message)) run({ type: 'task.delete', taskId: task.id, scope })
+  const requestDeleteTask = (task: Task) => {
+    setViewingTask(null)
+    setDeletingTask(task)
   }
 
-  const linkedTask = allActiveTasks.find(task => task.id === linkedTaskId)
+  const confirmDeleteTask = (scope: 'occurrence' | 'series') => {
+    if (!deletingTask) return
+    run({ type: 'task.delete', taskId: deletingTask.id, scope })
+    setDeletingTask(null)
+  }
+
+  const linkedTask = focusEligibleTasks.find(task => task.id === linkedTaskId)
   const plannedMinutes = timerKind === 'focus'
     ? linkedTask?.focusMinutes ?? state.settings.focusMinutes
     : timerKind === 'short_break'
@@ -299,7 +337,8 @@ export function App() {
       : state.settings.longBreakMinutes
 
   const startTimer = () => {
-    if (timerKind === 'focus' && !linkedTaskId && !activity.trim()) {
+    const validLinkedTaskId = timerKind === 'focus' && linkedTask ? linkedTask.id : undefined
+    if (timerKind === 'focus' && !validLinkedTaskId && !activity.trim()) {
       setSyncError('Choose a task or add a short focus description first.')
       return
     }
@@ -308,8 +347,8 @@ export function App() {
       type: 'timer.start',
       kind: timerKind,
       plannedSeconds: plannedMinutes * 60,
-      taskId: timerKind === 'focus' ? linkedTaskId || undefined : undefined,
-      activity: timerKind === 'focus' && !linkedTaskId ? activity.trim() || undefined : undefined
+      taskId: validLinkedTaskId,
+      activity: timerKind === 'focus' && !validLinkedTaskId ? activity.trim() || undefined : undefined
     })
   }
 
@@ -358,31 +397,31 @@ export function App() {
 
                 {taskView === 'calendar' ? (
                   <div className="calendar-view">
-                    {unscheduledCalendarTasks.length > 0 && <section className="unscheduled-tasks"><div><strong>Unscheduled</strong><span>Tasks without a date stay visible here.</span></div><div>{unscheduledCalendarTasks.map(task => <button key={task.id} onClick={() => openEditTask(task)}>{task.title}</button>)}</div></section>}
+                    {unscheduledCalendarTasks.length > 0 && <section className="unscheduled-tasks"><div><strong>Unscheduled</strong><span>Tasks without a date stay visible here.</span></div><div>{unscheduledCalendarTasks.map(task => <button key={task.id} onClick={() => setViewingTask(task)}>{task.title}</button>)}</div></section>}
                     <div className="calendar-toolbar"><button aria-label="Previous month" onClick={() => setCalendarMonth(current => shiftMonth(current, -1))}>←</button><strong>{calendarTitle}</strong><button aria-label="Next month" onClick={() => setCalendarMonth(current => shiftMonth(current, 1))}>→</button></div>
                     <div className="calendar-weekdays">{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => <span key={day}>{day}</span>)}</div>
                     <div className="calendar-grid">{calendarCells.map(cell => {
                       const dayTasks = visibleTasks.filter(task => !(task.status === 'active' && task.recurrence === 'none' && !task.dueDate) && (task.dueDate ?? task.occurrenceDate) === cell.date)
-                      return <div className={`calendar-day ${cell.inMonth ? '' : 'outside'} ${cell.date === today ? 'today' : ''}`} key={cell.date}><span>{Number(cell.date.slice(-2))}</span><div>{dayTasks.map(task => <button className={task.status} title={task.title} key={task.id} onClick={() => openEditTask(task)}>{task.scheduledTime ? `${task.scheduledTime} ` : ''}{task.title}</button>)}</div></div>
+                      return <div className={`calendar-day ${cell.inMonth ? '' : 'outside'} ${cell.date === today ? 'today' : ''}`} key={cell.date}><span>{Number(cell.date.slice(-2))}</span><div>{dayTasks.map(task => <button className={task.status} title={task.title} key={task.id} onClick={() => setViewingTask(task)}>{task.scheduledTime ? `${task.scheduledTime} ` : ''}{task.title}</button>)}</div></div>
                     })}</div>
                   </div>
                 ) : <>
                   <div className="task-list">
-                    {activeTasks.length === 0 && <div className="empty-state"><span>✓</span><h3>Nothing here yet</h3><p>Add a task or choose another view.</p></div>}
+                    {activeTasks.length === 0 && <div className="empty-state"><img className="empty-state-image" src={gromitEmpty} alt="moonim empty task list" /><p>Add a task or choose another view.</p></div>}
                     {activeTasks.map(task => (
                       <article className="task-row" key={task.id}>
                         <button className="check" aria-label={`Complete ${task.title}`} onClick={() => run({ type: 'task.complete', taskId: task.id })} />
-                        <div className="task-copy"><strong>{task.title}</strong><div className="task-meta"><span className="area-tag">{task.lifeArea || 'General'}</span><span>{friendlyDate(task.dueDate)}</span>{friendlyTime(task.scheduledTime) && <span>{friendlyTime(task.scheduledTime)}</span>}{task.focusMinutes && <span>{task.focusMinutes} min focus</span>}{task.recurrence !== 'none' && <span>{task.recurrence === 'daily' ? 'Daily' : 'Weekly'}</span>}{task.priority && <span className={`priority ${task.priority}`}>{task.priority}</span>}</div></div>
-                        <div className="row-actions"><button onClick={() => { setLinkedTaskId(task.id); setActivity(task.title) }} aria-label={`Focus on ${task.title}`}>Focus</button><button onClick={() => openEditTask(task)} aria-label={`Edit ${task.title}`}>Edit</button><button onClick={() => deleteTask(task)} aria-label={`Delete ${task.title}`}>×</button></div>
+                        <button className="task-copy task-open" aria-label={`Open ${task.title}`} onClick={() => setViewingTask(task)}><strong>{task.title}</strong>{task.description && <span className="task-description-preview">{task.description}</span>}<span className="task-meta"><span className="area-tag">{task.lifeArea || 'General'}</span><span>{friendlyDate(task.dueDate)}</span>{friendlyTime(task.scheduledTime) && <span>{friendlyTime(task.scheduledTime)}</span>}{task.focusMinutes && <span>{task.focusMinutes} min focus</span>}{task.recurrence !== 'none' && <span>{recurrenceLabel(task.recurrence)}</span>}{task.priority && <span className={`priority ${task.priority}`}>{task.priority}</span>}</span></button>
+                        <div className="row-actions">{task.focusMinutes && <button onClick={() => { setLinkedTaskId(task.id); setActivity(task.title) }} aria-label={`Focus on ${task.title}`}>Focus</button>}<button onClick={() => openEditTask(task)} aria-label={`Edit ${task.title}`}>Edit</button><button onClick={() => requestDeleteTask(task)} aria-label={`Delete ${task.title}`}>×</button></div>
                       </article>
                     ))}
                   </div>
-                  {completedTasks.length > 0 && <details className="completed-group"><summary>{completedTasks.length} completed</summary>{completedTasks.map(task => <article className="task-row completed" key={task.id}><button className="check checked" aria-label={`Reopen ${task.title}`} onClick={() => run({ type: 'task.reopen', taskId: task.id })}>✓</button><div className="task-copy"><strong>{task.title}</strong><div className="task-meta"><span>{task.lifeArea || 'General'}</span></div></div></article>)}</details>}
+                  {completedTasks.length > 0 && <details className="completed-group"><summary>{completedTasks.length} completed</summary>{completedTasks.map(task => <article className="task-row completed" key={task.id}><button className="check checked" aria-label={`Reopen ${task.title}`} onClick={() => run({ type: 'task.reopen', taskId: task.id })}>✓</button><button className="task-copy task-open" aria-label={`Open ${task.title}`} onClick={() => setViewingTask(task)}><strong>{task.title}</strong>{task.description && <span className="task-description-preview">{task.description}</span>}<span className="task-meta"><span>{task.lifeArea || 'General'}</span></span></button></article>)}</details>}
                 </>}
               </div>
 
               <aside className="focus-panel card">
-                <div className="section-heading"><div><span className="kicker">FOCUS</span><h2>{state.activeTimer ? 'Stay with this moment' : 'Choose what to focus on'}</h2></div><button className={`quiet-toggle ${distractionFree ? 'on' : ''}`} onClick={() => setDistractionFree(value => !value)} title="In-app distraction-free mode">◐</button></div>
+                <div className="section-heading"><div><span className="kicker">FOCUS</span><h2>{state.activeTimer ? 'Stay with this moment' : 'Choose what to focus on'}</h2></div><button className={`quiet-toggle ${distractionFree ? 'on' : ''}`} onClick={() => setDistractionFree(value => !value)} aria-label="Toggle distraction-free focus mode" aria-pressed={distractionFree} title="In-app distraction-free mode">◐</button></div>
 
                 {!state.activeTimer ? (
                   <>
@@ -393,13 +432,13 @@ export function App() {
                     </div>
                     <div className="timer-orbit"><div className="timer-display">{formatDuration(plannedMinutes * 60)}</div><small>ready when you are</small></div>
                     <div className="focus-start-zone">
-                      {timerKind === 'focus' && <div className="timer-fields"><label>Link a task<select value={linkedTaskId} onChange={event => { setLinkedTaskId(event.target.value); const task = allActiveTasks.find(item => item.id === event.target.value); if (task) setActivity(task.title) }}><option value="">No task selected</option>{allActiveTasks.map(task => <option value={task.id} key={task.id}>{task.title}</option>)}</select></label><label>Or describe your focus<input value={activity} onChange={event => setActivity(event.target.value)} placeholder="e.g. Mandarin lesson" /></label></div>}
+                      {timerKind === 'focus' && <div className="timer-fields"><label>Link a task<select value={linkedTaskId} onChange={event => { setLinkedTaskId(event.target.value); const task = focusEligibleTasks.find(item => item.id === event.target.value); if (task) setActivity(task.title) }}><option value="">No task selected</option>{focusEligibleTasks.map(task => <option value={task.id} key={task.id}>{task.title} · {task.focusMinutes} min</option>)}</select></label>{focusEligibleTasks.length === 0 ? <p className="focus-link-help"><strong>No tasks have a focus duration yet.</strong> Open a task and choose Edit task to set one.</p> : <p className="focus-link-help">Only active tasks with a focus duration appear here.</p>}<label>Or describe your focus<input value={activity} onChange={event => setActivity(event.target.value)} placeholder="e.g. Mandarin lesson" /></label></div>}
                       <button className="start-button" onClick={startTimer}>Start {timerKind === 'focus' ? 'focus' : 'break'}</button>
                     </div>
                   </>
                 ) : (
                   <>
-                    <div className={`timer-orbit running ${state.activeTimer.status === 'paused' ? 'paused' : ''}`}><div className="timer-display">{formatDuration(timerReading?.remainingSeconds ?? 0)}</div><small>{state.activeTimer.status === 'paused' ? 'paused · active time is not counting' : 'active time counting'}</small></div>
+                    <div className={`timer-orbit running ${state.activeTimer.status === 'paused' ? 'paused' : ''}`}><div className="timer-display">{formatDuration(timerReading?.remainingSeconds ?? 0)}</div><small className="timer-status">{state.activeTimer.status === 'paused' ? 'paused · active time is not counting' : 'active time counting'}</small></div>
                     <div className="current-activity">{state.activeTimer.taskId ? state.tasks.find(task => task.id === state.activeTimer?.taskId)?.title : state.activeTimer.activity || (state.activeTimer.kind === 'focus' ? 'Focused work' : 'Rest and reset')}</div>
                     <div className="timer-actions">
                       {state.activeTimer.status === 'running' ? <button className="secondary" onClick={() => run({ type: 'timer.pause' })}>Pause</button> : <button className="secondary" onClick={() => run({ type: 'timer.resume' })}>Resume</button>}
@@ -412,15 +451,16 @@ export function App() {
               </aside>
             </section>
 
-            {state.settings.streaksEnabled && <section className="day-summary card"><img className="growth-gromit" src={gromitScene} alt="Gromit knitting" /><div><span className="kicker">TODAY'S GROWTH</span><h3>{completedTodayTasks.length === 0 ? 'The day is still opening.' : completedTodayTasks.length === 1 ? 'One meaningful step is complete.' : `${completedTodayTasks.length} meaningful steps are complete.`}</h3><p>Progress grows from consistency, not pressure.</p></div><div className="summary-stat"><strong>{Math.round(focusedToday / 60)}</strong><span>focused minutes</span></div></section>}
+            {state.settings.streaksEnabled && <section className="day-summary card"><img className="growth-gromit" src={gromitScene} alt="Gromit knitting" /><div><span className="kicker">TODAY'S GROWTH</span><h3>{todayListComplete ? "Today's list is complete." : completedTodayTasks.length === 0 ? 'The day is still opening.' : completedTodayTasks.length === 1 ? 'One meaningful step is complete.' : `${completedTodayTasks.length} meaningful steps are complete.`}</h3><p>{todayListComplete ? `You extended your streak to ${dailyStreak.current} ${dailyStreak.current === 1 ? 'day' : 'days'}.` : 'Complete the whole Today list to extend your streak.'}</p></div><div className="summary-stat"><strong>{dailyStreak.current}</strong><span>day streak</span></div></section>}
           </>
         )}
 
         {screen === 'history' && (
           <section className="page-stack">
             <header className="page-header"><div><p className="eyebrow">LOCAL HISTORY</p><h1>A record of your progress.</h1></div></header>
-            <div className="metrics-grid"><div className="metric card"><span>Completed focus</span><strong>{focusSessions.filter(item => item.status === 'completed').length}</strong></div><div className="metric card"><span>Focused minutes</span><strong>{Math.round(focusSessions.filter(item => item.status === 'completed').reduce((sum, item) => sum + item.activeSeconds, 0) / 60)}</strong></div><div className="metric card"><span>Completed tasks</span><strong>{state.tasks.filter(item => item.status === 'completed').length}</strong></div></div>
-            <div className="history-grid"><div className="card history-list"><div className="section-heading"><div><span className="kicker">FOCUS</span><h2>Sessions</h2></div>{focusSessions.length > 0 && <button className="clear-history" onClick={() => window.confirm('Clear focus history from this device? Your append-only Obsidian records will remain.') && run({ type: 'history.clear', kind: 'focus' })}>Clear</button>}</div><div className="history-scroll">{focusSessions.length === 0 ? <p className="muted">Completed and cancelled focus sessions will appear here.</p> : [...focusSessions].reverse().map(session => <article key={session.id}><span className={`history-icon ${session.status}`}>{session.status === 'completed' ? '✓' : '×'}</span><div><strong>{session.activity || state.tasks.find(task => task.id === session.taskId)?.title || 'Focused work'}</strong><p>{actualDuration(session.activeSeconds)} active · {session.status}</p></div><time>{new Date(session.startedAt).toLocaleDateString()}</time></article>)}</div></div><div className="card history-list"><div className="section-heading"><div><span className="kicker">REST</span><h2>Breaks</h2></div>{breakSessions.length > 0 && <button className="clear-history" onClick={() => window.confirm('Clear rest history from this device? Your append-only Obsidian records will remain.') && run({ type: 'history.clear', kind: 'rest' })}>Clear</button>}</div><div className="history-scroll">{breakSessions.length === 0 ? <p className="muted">Break history stays separate from focus analytics.</p> : [...breakSessions].reverse().map(session => <article key={session.id}><span className="history-icon break">☾</span><div><strong>{session.kind === 'short_break' ? 'Short break' : 'Long break'}</strong><p>{actualDuration(session.activeSeconds)} · {session.status}</p></div><time>{new Date(session.startedAt).toLocaleDateString()}</time></article>)}</div></div></div>
+            <section className="card recurrence-history"><div className="section-heading"><div><span className="kicker">CONSISTENCY</span><h2>Recurring task streaks</h2></div></div>{recurringSeries.length === 0 ? <p className="muted">Daily, weekly, and monthly task streaks will appear here.</p> : <div className="streak-list">{recurringSeries.map(({ task, streak, unit }) => <button type="button" className="streak-task-button" aria-label={`Open ${task.title} streak details`} key={task.seriesId} onClick={() => setViewingTask(task)}><div><strong>{task.title}</strong><p>{task.recurrence} · best {streak.best} {streak.best === 1 ? unit : `${unit}s`}</p></div><span><strong>{streak.current}</strong> {unit} streak</span></button>)}</div>}</section>
+            <section className="card task-history"><div className="section-heading"><div><span className="kicker">TASKS</span><h2>All tasks</h2></div></div>{currentTasks.length === 0 ? <p className="muted">You do not have any tasks yet.</p> : <div className="task-history-list">{currentTasks.map(task => <button type="button" aria-label={`Open ${task.title} task`} key={task.id} onClick={() => setViewingTask(task)}><span><strong>{task.title}</strong><small>{task.status === 'active' ? 'Active' : 'Completed'}{task.description ? ` · ${task.description}` : task.lifeArea ? ` · ${task.lifeArea}` : ''}</small></span><time>{task.status === 'completed' ? new Date(task.completedAt ?? task.updatedAt).toLocaleDateString() : friendlyDate(task.dueDate)}</time></button>)}</div>}</section>
+            <div className="card history-list"><div className="section-heading"><div><span className="kicker">FOCUS</span><h2>Sessions</h2></div>{focusSessions.length > 0 && <button className="clear-history" onClick={() => window.confirm('Clear focus history from this device? Your append-only Obsidian records will remain.') && run({ type: 'history.clear', kind: 'focus' })}>Clear</button>}</div><div className="history-scroll">{focusSessions.length === 0 ? <p className="muted">Completed and cancelled focus sessions will appear here.</p> : [...focusSessions].reverse().map(session => <article key={session.id}><span className={`history-icon ${session.status}`}>{session.status === 'completed' ? '✓' : '×'}</span><div><strong>{session.activity || state.tasks.find(task => task.id === session.taskId)?.title || 'Focused work'}</strong><p>{actualDuration(session.activeSeconds)} active · {session.status}</p></div><time>{new Date(session.startedAt).toLocaleDateString()}</time></article>)}</div></div>
           </section>
         )}
 
@@ -438,7 +478,11 @@ export function App() {
         )}
       </main>
 
-      {taskDialogOpen && <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && setTaskDialogOpen(false)}><form className="task-dialog" onSubmit={saveTask}><div className="dialog-heading"><div><span className="kicker">{editingTask ? 'EDIT TASK' : 'NEW TASK'}</span><h2>{editingTask ? 'Refine this step' : 'What matters today?'}</h2></div><button type="button" onClick={() => setTaskDialogOpen(false)}>×</button></div><label>Task title<input autoFocus value={draft.title} onChange={event => setDraft(current => ({ ...current, title: event.target.value }))} placeholder="e.g. Take morning medication" /></label><div className="form-grid"><label>Life area<select value={draft.lifeArea} onChange={event => setDraft(current => ({ ...current, lifeArea: event.target.value }))}>{state.settings.lifeAreas.map(area => <option key={area}>{area}</option>)}</select></label><label>Priority<select value={draft.priority} onChange={event => setDraft(current => ({ ...current, priority: event.target.value as TaskDraft['priority'] }))}><option value="">No priority</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label><label>Due date<input type="date" value={draft.dueDate} onChange={event => setDraft(current => ({ ...current, dueDate: event.target.value }))} /></label><label>Time<input type="time" value={draft.scheduledTime} onChange={event => setDraft(current => ({ ...current, scheduledTime: event.target.value }))} /></label><label>Focus duration (minutes)<input type="number" min="1" max="180" step="1" value={draft.focusMinutes} onChange={event => setDraft(current => ({ ...current, focusMinutes: event.target.value }))} placeholder="Optional, e.g. 30" /></label>{!editingTask && <label>Repeat<select value={draft.recurrence} onChange={event => setDraft(current => ({ ...current, recurrence: event.target.value as Recurrence }))}><option value="none">Does not repeat</option><option value="daily">Every day</option><option value="weekly">Every week</option></select></label>}</div><div className="dialog-actions"><button type="button" className="secondary" onClick={() => setTaskDialogOpen(false)}>Cancel</button><button className="primary" type="submit">{editingTask ? 'Save changes' : 'Add task'}</button></div></form></div>}
+      {viewingTask && <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && setViewingTask(null)}><section className="task-detail card" role="dialog" aria-modal="true" aria-labelledby="task-detail-title"><div className="dialog-heading"><div><span className="kicker">TASK DETAILS</span><h2 id="task-detail-title">{viewingTask.title}</h2></div><button type="button" aria-label="Close task details" onClick={() => setViewingTask(null)}>×</button></div><p className="task-detail-description">{viewingTask.description || 'No description yet.'}</p><dl className="task-detail-grid"><div><dt>Life area</dt><dd>{viewingTask.lifeArea || 'General'}</dd></div><div><dt>Due</dt><dd>{friendlyDate(viewingTask.dueDate)}{friendlyTime(viewingTask.scheduledTime) ? ` · ${friendlyTime(viewingTask.scheduledTime)}` : ''}</dd></div><div><dt>Focus duration</dt><dd>{viewingTask.focusMinutes ? `${viewingTask.focusMinutes} minutes` : 'Not set'}</dd></div><div><dt>Repeat</dt><dd>{viewingTask.recurrence}</dd></div></dl><div className="dialog-actions task-detail-actions"><button type="button" className="danger-button" onClick={() => requestDeleteTask(viewingTask)}>Delete task</button><button type="button" className="primary" onClick={() => openEditTask(viewingTask)}>Edit task</button></div></section></div>}
+
+      {deletingTask && <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && setDeletingTask(null)}><section className="delete-dialog card" role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title"><span className="kicker">CONFIRM DELETE</span><h2 id="delete-dialog-title">Delete {deletingTask.title}?</h2><p>{deletingTask.recurrence === 'none' ? 'This removes the task from moonim. Its append-only activity record is preserved.' : 'Choose whether to remove only this occurrence or the entire recurring routine.'}</p><div className="dialog-actions delete-actions"><button type="button" className="secondary" onClick={() => setDeletingTask(null)}>Cancel</button>{deletingTask.recurrence === 'none' ? <button type="button" className="danger-button" aria-label="Confirm delete task" onClick={() => confirmDeleteTask('occurrence')}>Delete task</button> : <><button type="button" className="secondary" onClick={() => confirmDeleteTask('occurrence')}>Delete this occurrence</button><button type="button" className="danger-button" onClick={() => confirmDeleteTask('series')}>Delete whole {deletingTask.recurrence} routine</button></>}</div></section></div>}
+
+      {taskDialogOpen && <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && setTaskDialogOpen(false)}><form className="task-dialog" onSubmit={saveTask}><div className="dialog-heading"><div><span className="kicker">{editingTask ? 'EDIT TASK' : 'NEW TASK'}</span><h2>{editingTask ? 'Refine this step' : 'What matters today?'}</h2></div><button type="button" onClick={() => setTaskDialogOpen(false)}>×</button></div><label>Task title<input autoFocus value={draft.title} onChange={event => setDraft(current => ({ ...current, title: event.target.value }))} placeholder="e.g. Take morning medication" /></label><label>Description<textarea value={draft.description} onChange={event => setDraft(current => ({ ...current, description: event.target.value }))} placeholder="Add notes, context, or a definition of done." /></label><div className="form-grid"><label>Life area<select value={draft.lifeArea} onChange={event => setDraft(current => ({ ...current, lifeArea: event.target.value }))}>{state.settings.lifeAreas.map(area => <option key={area}>{area}</option>)}</select></label><label>Priority<select value={draft.priority} onChange={event => setDraft(current => ({ ...current, priority: event.target.value as TaskDraft['priority'] }))}><option value="">No priority</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label><label>Due date<input type="date" value={draft.dueDate} onChange={event => setDraft(current => ({ ...current, dueDate: event.target.value }))} /></label><label>Time<input type="time" value={draft.scheduledTime} onChange={event => setDraft(current => ({ ...current, scheduledTime: event.target.value }))} /></label><label>Focus duration (minutes)<input type="number" min="1" max="180" step="1" value={draft.focusMinutes} onChange={event => setDraft(current => ({ ...current, focusMinutes: event.target.value }))} placeholder="Optional, e.g. 30" /></label>{!editingTask && <label>Repeat<select value={draft.recurrence} onChange={event => setDraft(current => ({ ...current, recurrence: event.target.value as Recurrence }))}><option value="none">Does not repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></label>}</div><div className="dialog-actions"><button type="button" className="secondary" onClick={() => setTaskDialogOpen(false)}>Cancel</button><button className="primary" type="submit">{editingTask ? 'Save changes' : 'Create task'}</button></div></form></div>}
     </div>
   )
 }

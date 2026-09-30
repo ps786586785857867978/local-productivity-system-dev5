@@ -11,19 +11,21 @@ import {
 
 export type Priority = 'low' | 'medium' | 'high'
 export type TaskStatus = 'active' | 'completed' | 'deleted'
-export type Recurrence = 'none' | 'daily' | 'weekly'
+export type Recurrence = 'none' | 'daily' | 'weekly' | 'monthly'
 export type TaskListView = 'today' | 'week' | 'month' | 'calendar'
 
 export interface Task {
   id: string
   seriesId?: string
   title: string
+  description?: string
   lifeArea?: string
   priority?: Priority
   dueDate?: string
   scheduledTime?: string
   focusMinutes?: number
   recurrence: Recurrence
+  recurrenceAnchorDate?: string
   occurrenceDate: string
   status: TaskStatus
   createdAt: string
@@ -87,6 +89,7 @@ export interface ProductState {
   activeTimer?: TimerState
   outbox: LogEvent[]
   deletedSeriesIds: string[]
+  dailyCompletionDates?: string[]
   settings: AppSettings
 }
 
@@ -130,6 +133,105 @@ export function isTaskVisibleInView(
   return taskDate >= formatDate(weekStart) && taskDate <= formatDate(weekEnd)
 }
 
+export function isDailyTaskCompletion(tasks: readonly Task[], localDate: string): boolean {
+  const visibleTasks = tasks.filter(task => isTaskVisibleToday(task, localDate))
+  return visibleTasks.length > 0 && visibleTasks.every(task => task.status === 'completed')
+}
+
+function shiftLocalDate(localDate: string, amount: number): string {
+  const date = new Date(`${localDate}T12:00:00Z`)
+  date.setUTCDate(date.getUTCDate() + amount)
+  return date.toISOString().slice(0, 10)
+}
+
+function updateDailyCompletionDates(
+  dates: readonly string[] | undefined,
+  tasks: readonly Task[],
+  localDate: string
+): string[] {
+  const values = new Set(dates ?? [])
+  if (isDailyTaskCompletion(tasks, localDate)) values.add(localDate)
+  else values.delete(localDate)
+  return [...values].sort()
+}
+
+export function dailyAppStreak(
+  completionDates: readonly string[],
+  today: string
+): { current: number; best: number } {
+  const dates = [...new Set(completionDates)].sort()
+  const values = new Set(dates)
+  let best = 0
+  let run = 0
+  let previous: string | undefined
+  for (const date of dates) {
+    run = previous && shiftLocalDate(previous, 1) === date ? run + 1 : 1
+    best = Math.max(best, run)
+    previous = date
+  }
+
+  let cursor = values.has(today) ? today : shiftLocalDate(today, -1)
+  let current = 0
+  while (values.has(cursor)) {
+    current += 1
+    cursor = shiftLocalDate(cursor, -1)
+  }
+  return { current, best }
+}
+
+export function recurringTaskStreak(
+  tasks: readonly Task[],
+  seriesId: string,
+  asOfDate: string
+): { current: number; best: number } {
+  const seriesTasks = tasks
+    .filter(task => task.seriesId === seriesId && task.occurrenceDate <= asOfDate)
+    .sort((left, right) => left.occurrenceDate.localeCompare(right.occurrenceDate))
+  if (seriesTasks.length === 0) return { current: 0, best: 0 }
+
+  const statusesByDate = new Map<string, TaskStatus[]>()
+  for (const task of seriesTasks) {
+    const statuses = statusesByDate.get(task.occurrenceDate) ?? []
+    statuses.push(task.status)
+    statusesByDate.set(task.occurrenceDate, statuses)
+  }
+
+  const recurrence = seriesTasks[0].recurrence
+  const anchorDate = seriesTasks.find(task => task.recurrenceAnchorDate)?.recurrenceAnchorDate ?? seriesTasks[0].occurrenceDate
+  let current = 0
+  let best = 0
+  let expectedDate = seriesTasks[0].occurrenceDate
+  for (const date of [...statusesByDate.keys()].sort()) {
+    if (date !== expectedDate) current = 0
+    const statuses = statusesByDate.get(date)!
+    if (statuses.includes('completed')) {
+      current += 1
+      best = Math.max(best, current)
+    } else if (statuses.includes('active')) {
+      current = 0
+    }
+    expectedDate = nextRecurrenceDate(recurrence, date, anchorDate)
+  }
+
+  if (expectedDate <= asOfDate) current = 0
+
+  return { current, best }
+}
+
+function nextRecurrenceDate(recurrence: Recurrence, date: string, anchorDate: string): string {
+  if (recurrence === 'daily') return shiftLocalDate(date, 1)
+  if (recurrence === 'weekly') return shiftLocalDate(date, 7)
+  if (recurrence === 'monthly') {
+    const [year, month] = date.split('-').map(Number)
+    const anchorDay = Number(anchorDate.slice(8, 10))
+    const nextMonth = month === 12 ? 1 : month + 1
+    const nextYear = month === 12 ? year + 1 : year
+    const lastDay = new Date(Date.UTC(nextYear, nextMonth, 0)).getUTCDate()
+    return `${nextYear}-${String(nextMonth).padStart(2, '0')}-${String(Math.min(anchorDay, lastDay)).padStart(2, '0')}`
+  }
+  return date
+}
+
 export interface CommandContext {
   now: string
   localDate: string
@@ -142,6 +244,7 @@ export interface CommandContext {
 type TaskCreateCommand = {
   type: 'task.create'
   title: string
+  description?: string
   lifeArea?: string
   priority?: Priority
   dueDate?: string
@@ -153,7 +256,7 @@ type TaskCreateCommand = {
 type TaskEditCommand = {
   type: 'task.edit'
   taskId: string
-  changes: Partial<Pick<Task, 'title' | 'lifeArea' | 'priority' | 'dueDate' | 'scheduledTime' | 'focusMinutes'>>
+  changes: Partial<Pick<Task, 'title' | 'description' | 'lifeArea' | 'priority' | 'dueDate' | 'scheduledTime' | 'focusMinutes'>>
 }
 
 export type ProductCommand =
@@ -184,6 +287,7 @@ export function createInitialState(): ProductState {
     sessions: [],
     outbox: [],
     deletedSeriesIds: [],
+    dailyCompletionDates: [],
     settings: {
       lifeAreas: ['Health', 'Learning', 'Creative', 'Movement', 'Coursework'],
       focusMinutes: 25,
@@ -224,6 +328,7 @@ function clone(state: ProductState): ProductState {
     activeTimer: state.activeTimer ? { ...state.activeTimer } : undefined,
     outbox: state.outbox.map(item => ({ ...item, details: { ...item.details } })),
     deletedSeriesIds: [...state.deletedSeriesIds],
+    dailyCompletionDates: [...(state.dailyCompletionDates ?? [])],
     settings: { ...state.settings, lifeAreas: [...state.settings.lifeAreas] }
   }
 }
@@ -232,6 +337,15 @@ function requireTask(state: ProductState, taskId: string): Task {
   const task = state.tasks.find(item => item.id === taskId)
   if (!task) throw new Error(`Task not found: ${taskId}`)
   return task
+}
+
+function completeActiveTask(state: ProductState, task: Task, context: CommandContext): boolean {
+  if (task.status !== 'active') return false
+  task.status = 'completed'
+  task.completedAt = context.now
+  task.updatedAt = context.now
+  state.outbox.push(event(context, 'task_completed', task.id, task.status, { task: { ...task } }))
+  return true
 }
 
 export function applyProductCommand(
@@ -248,12 +362,14 @@ export function applyProductCommand(
       id: context.id(),
       seriesId,
       title: command.title.trim(),
+      description: command.description?.trim() || undefined,
       lifeArea: command.lifeArea,
       priority: command.priority,
       dueDate: command.dueDate,
       scheduledTime: command.scheduledTime,
       focusMinutes: validateTaskFocusMinutes(command.focusMinutes),
       recurrence: command.recurrence,
+      recurrenceAnchorDate: command.recurrence === 'monthly' ? command.dueDate ?? context.localDate : undefined,
       occurrenceDate: command.recurrence === 'none' ? context.localDate : command.dueDate ?? context.localDate,
       status: 'active',
       createdAt: context.now,
@@ -262,12 +378,16 @@ export function applyProductCommand(
     if (!task.title) throw new Error('Task title is required')
     state.tasks.push(task)
     state.outbox.push(event(context, 'task_created', task.id, task.status, { task: { ...task } }))
+    state.dailyCompletionDates = updateDailyCompletionDates(state.dailyCompletionDates, state.tasks, context.localDate)
     return state
   }
 
   if (command.type === 'task.edit') {
     const task = requireTask(state, command.taskId)
     const changes = { ...command.changes }
+    if ('description' in changes) {
+      changes.description = changes.description?.trim() || undefined
+    }
     if ('focusMinutes' in changes) {
       changes.focusMinutes = validateTaskFocusMinutes(changes.focusMinutes)
     }
@@ -279,22 +399,21 @@ export function applyProductCommand(
     Object.assign(task, changes, { updatedAt: context.now })
     if (task.recurrence !== 'none' && changedFields.includes('dueDate') && task.dueDate) {
       task.occurrenceDate = task.dueDate
+      if (task.recurrence === 'monthly') task.recurrenceAnchorDate = task.dueDate
     }
     if (!task.title.trim()) throw new Error('Task title is required')
     state.outbox.push(event(context, 'task_edited', task.id, task.status, {
       changedFields,
       task: { ...task }
     }))
+    state.dailyCompletionDates = updateDailyCompletionDates(state.dailyCompletionDates, state.tasks, context.localDate)
     return state
   }
 
   if (command.type === 'task.complete') {
     const task = requireTask(state, command.taskId)
-    if (task.status !== 'active') return state
-    task.status = 'completed'
-    task.completedAt = context.now
-    task.updatedAt = context.now
-    state.outbox.push(event(context, 'task_completed', task.id, task.status, { task: { ...task } }))
+    completeActiveTask(state, task, context)
+    state.dailyCompletionDates = updateDailyCompletionDates(state.dailyCompletionDates, state.tasks, context.localDate)
     return state
   }
 
@@ -305,6 +424,7 @@ export function applyProductCommand(
     delete task.completedAt
     task.updatedAt = context.now
     state.outbox.push(event(context, 'task_reopened', task.id, task.status, { task: { ...task } }))
+    state.dailyCompletionDates = updateDailyCompletionDates(state.dailyCompletionDates, state.tasks, context.localDate)
     return state
   }
 
@@ -325,6 +445,7 @@ export function applyProductCommand(
       scope: command.scope,
       task: { ...task }
     }))
+    state.dailyCompletionDates = updateDailyCompletionDates(state.dailyCompletionDates, state.tasks, context.localDate)
     return state
   }
 
@@ -333,10 +454,13 @@ export function applyProductCommand(
     const linkedTask = command.kind === 'focus' && command.taskId
       ? requireTask(state, command.taskId)
       : undefined
+    if (linkedTask && (linkedTask.status !== 'active' || linkedTask.focusMinutes === undefined)) {
+      throw new Error('Linked tasks require a focus duration')
+    }
     const timer = startTimer({
       id: context.id(),
       kind: command.kind,
-      plannedSeconds: linkedTask?.focusMinutes ? linkedTask.focusMinutes * 60 : command.plannedSeconds,
+      plannedSeconds: linkedTask ? linkedTask.focusMinutes! * 60 : command.plannedSeconds,
       startedAtMs: nowMs,
       taskId: command.taskId,
       activity: command.activity?.trim() || undefined
@@ -395,6 +519,12 @@ export function applyProductCommand(
       activeSeconds: reading.activeSeconds,
       pausedSeconds: reading.pausedSeconds
     }))
+    if (ended.kind === 'focus' && ended.status === 'completed' && ended.taskId) {
+      const linkedTask = state.tasks.find(task => task.id === ended.taskId)
+      if (linkedTask && completeActiveTask(state, linkedTask, context)) {
+        state.dailyCompletionDates = updateDailyCompletionDates(state.dailyCompletionDates, state.tasks, context.localDate)
+      }
+    }
     return state
   }
 
@@ -423,7 +553,11 @@ export function applyProductCommand(
   const recurringSeries = new Map<string, Task>()
   for (const task of state.tasks) {
     if (task.recurrence !== 'none' && task.seriesId) {
-      recurringSeries.set(task.seriesId, task)
+      const current = recurringSeries.get(task.seriesId)
+      if (!current || task.occurrenceDate > current.occurrenceDate ||
+        (task.occurrenceDate === current.occurrenceDate && task.updatedAt > current.updatedAt)) {
+        recurringSeries.set(task.seriesId, task)
+      }
     }
   }
 
@@ -431,7 +565,11 @@ export function applyProductCommand(
     if (state.deletedSeriesIds.includes(seriesId)) continue
     const exists = state.tasks.some(task => task.seriesId === seriesId && task.occurrenceDate === command.localDate)
     if (exists) continue
-    if (!shouldCreateOccurrence(template.recurrence, template.occurrenceDate, command.localDate)) continue
+    if (!shouldCreateOccurrence(
+      template.recurrence,
+      template.recurrenceAnchorDate ?? template.occurrenceDate,
+      command.localDate
+    )) continue
     const occurrence: Task = {
       ...template,
       id: context.id(),
@@ -444,10 +582,19 @@ export function applyProductCommand(
     }
     state.tasks.push(occurrence)
   }
+  state.dailyCompletionDates = updateDailyCompletionDates(state.dailyCompletionDates, state.tasks, context.localDate)
   return state
 }
 
 function shouldCreateOccurrence(recurrence: Recurrence, previousDate: string, targetDate: string): boolean {
+  if (recurrence === 'monthly') {
+    const [anchorYear, anchorMonth, anchorDay] = previousDate.split('-').map(Number)
+    const [targetYear, targetMonth, targetDay] = targetDate.split('-').map(Number)
+    const elapsedMonths = (targetYear - anchorYear) * 12 + targetMonth - anchorMonth
+    if (elapsedMonths <= 0) return false
+    const lastDay = new Date(Date.UTC(targetYear, targetMonth, 0)).getUTCDate()
+    return targetDay === Math.min(anchorDay, lastDay)
+  }
   const dayMs = 24 * 60 * 60 * 1000
   const previous = Date.parse(`${previousDate}T00:00:00Z`)
   const target = Date.parse(`${targetDate}T00:00:00Z`)

@@ -61,6 +61,9 @@
 | 28 | Install, test, build, and package from a clean clone | Final feature commit `0b50406f7033e0bc1ad49d631fe1b781f0321386` plus earlier verified baselines | Pass |
 | 29 | Keep assessment screenshots and final sample privacy-safe | Reviewed design artifacts and neutral final submission sample | Pass |
 | 30 | Use records produced by the actual app | Real files written through Electron IPC to the selected vault | Pass |
+| 31 | Include vault examples inside the PDF report as well as the separate Markdown sample | Three representative verbatim task/focus/break excerpts in `docs/FINAL_REPORT.md`; complete 16-event sample in `submission/Saule_Pranculyte_3IXD_Dev5_Obsidiansample.md` | Pass |
+| 32 | Explain an alternative considered but rejected | Report explicitly rejects separate task/timer apps and explains why the combined architecture was selected; dark-first visual direction is also documented as a rejected default | Pass |
+| 33 | Verify the submitted sample against original app output | All 16 submitted event IDs match the original isolated submission-vault task/focus/break files | Pass |
 
 ## Clean-clone verification
 
