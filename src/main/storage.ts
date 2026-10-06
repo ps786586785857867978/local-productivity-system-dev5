@@ -158,6 +158,7 @@ function isTask(value: unknown): boolean {
       : value.recurrenceAnchorDate === undefined) &&
     isValidLocalDate(value.occurrenceDate) &&
     isOneOf(value.status, ['active', 'completed', 'deleted'] as const) &&
+    (value.completedForDate === undefined || isValidLocalDate(value.completedForDate)) &&
     isIsoTimestamp(value.createdAt) &&
     isIsoTimestamp(value.updatedAt) &&
     isOptionalIsoTimestamp(value.completedAt) &&

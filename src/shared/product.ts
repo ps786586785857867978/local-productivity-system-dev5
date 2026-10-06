@@ -28,6 +28,7 @@ export interface Task {
   recurrenceAnchorDate?: string
   occurrenceDate: string
   status: TaskStatus
+  completedForDate?: string
   createdAt: string
   updatedAt: string
   completedAt?: string
@@ -96,9 +97,12 @@ export interface ProductState {
 export function isTaskVisibleToday(task: Task, today: string): boolean {
   if (task.status === 'deleted') return false
   if (task.status === 'active') {
-    return (task.dueDate ?? task.occurrenceDate) <= today
+    const scheduledDate = task.recurrence === 'daily'
+      ? task.occurrenceDate
+      : task.dueDate ?? task.occurrenceDate
+    return scheduledDate <= today
   }
-  const completedDate = task.completedAt?.slice(0, 10) ?? task.occurrenceDate
+  const completedDate = task.completedForDate ?? task.completedAt?.slice(0, 10) ?? task.occurrenceDate
   return completedDate === today
 }
 
@@ -118,7 +122,7 @@ export function isTaskVisibleInView(
   if (view === 'calendar') return scheduledDate.slice(0, 7) === calendarMonth
 
   const taskDate = task.status === 'completed'
-    ? task.completedAt?.slice(0, 10) ?? task.dueDate ?? task.occurrenceDate
+    ? task.completedForDate ?? task.completedAt?.slice(0, 10) ?? task.dueDate ?? task.occurrenceDate
     : scheduledDate
 
   if (view === 'month') return taskDate.slice(0, 7) === today.slice(0, 7)
@@ -134,8 +138,19 @@ export function isTaskVisibleInView(
 }
 
 export function isDailyTaskCompletion(tasks: readonly Task[], localDate: string): boolean {
-  const visibleTasks = tasks.filter(task => isTaskVisibleToday(task, localDate))
+  const visibleTasks = tasks.filter(task => isTaskCountedOnDate(task, localDate))
   return visibleTasks.length > 0 && visibleTasks.every(task => task.status === 'completed')
+}
+
+export function isTaskCountedOnDate(task: Task, localDate: string): boolean {
+  if (task.status === 'deleted') return false
+  if (task.status === 'completed') {
+    return (task.completedForDate ?? task.completedAt?.slice(0, 10) ?? task.occurrenceDate) === localDate
+  }
+  if (task.recurrence === 'daily') return task.occurrenceDate === localDate
+  if (task.dueDate) return task.dueDate === localDate
+  if (task.recurrence !== 'none') return task.occurrenceDate === localDate
+  return task.occurrenceDate <= localDate
 }
 
 function shiftLocalDate(localDate: string, amount: number): string {
@@ -265,6 +280,7 @@ export type ProductCommand =
   | { type: 'task.complete'; taskId: string }
   | { type: 'task.reopen'; taskId: string }
   | { type: 'task.delete'; taskId: string; scope: 'occurrence' | 'series' }
+  | { type: 'task.history.clear' }
   | { type: 'day.ensure'; localDate: string }
   | {
       type: 'timer.start'
@@ -343,6 +359,9 @@ function completeActiveTask(state: ProductState, task: Task, context: CommandCon
   if (task.status !== 'active') return false
   task.status = 'completed'
   task.completedAt = context.now
+  task.completedForDate = task.recurrence === 'none' && !task.dueDate
+    ? context.localDate
+    : task.recurrence === 'daily' ? task.occurrenceDate : task.dueDate ?? task.occurrenceDate
   task.updatedAt = context.now
   state.outbox.push(event(context, 'task_completed', task.id, task.status, { task: { ...task } }))
   return true
@@ -370,7 +389,9 @@ export function applyProductCommand(
       focusMinutes: validateTaskFocusMinutes(command.focusMinutes),
       recurrence: command.recurrence,
       recurrenceAnchorDate: command.recurrence === 'monthly' ? command.dueDate ?? context.localDate : undefined,
-      occurrenceDate: command.recurrence === 'none' ? context.localDate : command.dueDate ?? context.localDate,
+      occurrenceDate: command.recurrence === 'daily'
+        ? context.localDate
+        : command.recurrence === 'none' ? context.localDate : command.dueDate ?? context.localDate,
       status: 'active',
       createdAt: context.now,
       updatedAt: context.now
@@ -413,18 +434,27 @@ export function applyProductCommand(
   if (command.type === 'task.complete') {
     const task = requireTask(state, command.taskId)
     completeActiveTask(state, task, context)
-    state.dailyCompletionDates = updateDailyCompletionDates(state.dailyCompletionDates, state.tasks, context.localDate)
+    const completionDate = task.completedForDate ?? context.localDate
+    state.dailyCompletionDates = updateDailyCompletionDates(state.dailyCompletionDates, state.tasks, completionDate)
+    if (completionDate !== context.localDate) {
+      state.dailyCompletionDates = updateDailyCompletionDates(state.dailyCompletionDates, state.tasks, context.localDate)
+    }
     return state
   }
 
   if (command.type === 'task.reopen') {
     const task = requireTask(state, command.taskId)
     if (task.status !== 'completed') return state
+    const completionDate = task.completedForDate ?? context.localDate
     task.status = 'active'
     delete task.completedAt
+    delete task.completedForDate
     task.updatedAt = context.now
     state.outbox.push(event(context, 'task_reopened', task.id, task.status, { task: { ...task } }))
-    state.dailyCompletionDates = updateDailyCompletionDates(state.dailyCompletionDates, state.tasks, context.localDate)
+    state.dailyCompletionDates = updateDailyCompletionDates(state.dailyCompletionDates, state.tasks, completionDate)
+    if (completionDate !== context.localDate) {
+      state.dailyCompletionDates = updateDailyCompletionDates(state.dailyCompletionDates, state.tasks, context.localDate)
+    }
     return state
   }
 
@@ -550,6 +580,23 @@ export function applyProductCommand(
     return state
   }
 
+  if (command.type === 'task.history.clear') {
+    for (const task of state.tasks) {
+      if (task.status === 'deleted') continue
+      if (task.seriesId && !state.deletedSeriesIds.includes(task.seriesId)) {
+        state.deletedSeriesIds.push(task.seriesId)
+      }
+      task.status = 'deleted'
+      task.updatedAt = context.now
+      state.outbox.push(event(context, 'task_deleted', task.id, task.status, {
+        scope: 'occurrence',
+        task: { ...task }
+      }))
+    }
+    state.dailyCompletionDates = updateDailyCompletionDates(state.dailyCompletionDates, state.tasks, context.localDate)
+    return state
+  }
+
   const recurringSeries = new Map<string, Task>()
   for (const task of state.tasks) {
     if (task.recurrence !== 'none' && task.seriesId) {
@@ -578,7 +625,8 @@ export function applyProductCommand(
       status: 'active',
       createdAt: context.now,
       updatedAt: context.now,
-      completedAt: undefined
+      completedAt: undefined,
+      completedForDate: undefined
     }
     state.tasks.push(occurrence)
   }
@@ -587,6 +635,7 @@ export function applyProductCommand(
 }
 
 function shouldCreateOccurrence(recurrence: Recurrence, previousDate: string, targetDate: string): boolean {
+  if (recurrence === 'daily') return true
   if (recurrence === 'monthly') {
     const [anchorYear, anchorMonth, anchorDay] = previousDate.split('-').map(Number)
     const [targetYear, targetMonth, targetDay] = targetDate.split('-').map(Number)
@@ -599,7 +648,7 @@ function shouldCreateOccurrence(recurrence: Recurrence, previousDate: string, ta
   const previous = Date.parse(`${previousDate}T00:00:00Z`)
   const target = Date.parse(`${targetDate}T00:00:00Z`)
   const elapsedDays = Math.round((target - previous) / dayMs)
-  return recurrence !== 'none' && elapsedDays > 0 && (recurrence === 'daily' || elapsedDays % 7 === 0)
+  return recurrence === 'weekly' && elapsedDays > 0 && elapsedDays % 7 === 0
 }
 
 function validateTaskFocusMinutes(value?: number): number | undefined {

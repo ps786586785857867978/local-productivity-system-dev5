@@ -3,8 +3,8 @@ import {
   applyProductCommand,
   createInitialState,
   dailyAppStreak,
+  isTaskCountedOnDate,
   isTaskVisibleInView,
-  isTaskVisibleToday,
   recurringTaskStreak,
   type Priority,
   type ProductCommand,
@@ -17,6 +17,7 @@ import { readTimer, type TimerKind } from '../../shared/timer'
 import gromitEmpty from './assets/gromit-empty.png'
 import gromitIcon from './assets/gromit-icon.png'
 import gromitScene from './assets/gromit.jpg'
+import congratulationsImage from './assets/congratulations.jpeg'
 
 type Screen = 'today' | 'history' | 'settings'
 type TaskDraft = {
@@ -87,10 +88,41 @@ function recurrenceLabel(recurrence: Recurrence): string {
   return 'Does not repeat'
 }
 
+function isOverdue(task: Task, today: string): boolean {
+  const dueDate = task.recurrence === 'daily'
+    ? task.occurrenceDate
+    : task.dueDate ?? (task.recurrence === 'none' ? undefined : task.occurrenceDate)
+  return task.status === 'active' && dueDate !== undefined && dueDate < today
+}
+
 function shiftMonth(month: string, amount: number): string {
   const date = new Date(`${month}-01T12:00:00`)
   date.setMonth(date.getMonth() + amount)
   return localDate(date).slice(0, 7)
+}
+
+function shiftDate(value: string, amount: number): string {
+  const date = new Date(`${value}T12:00:00`)
+  date.setDate(date.getDate() + amount)
+  return localDate(date)
+}
+
+function taskPeriodLabel(date: string, view: TaskListView): string {
+  if (view === 'today') {
+    return new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+      .format(new Date(`${date}T12:00:00`))
+  }
+  if (view === 'month' || view === 'calendar') {
+    return new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' })
+      .format(new Date(`${date.slice(0, 7)}-01T12:00:00`))
+  }
+  const selected = new Date(`${date}T12:00:00`)
+  const start = new Date(selected)
+  start.setDate(selected.getDate() - ((selected.getDay() + 6) % 7))
+  const end = new Date(start)
+  end.setDate(start.getDate() + 6)
+  const format = (value: Date) => new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(value)
+  return `${format(start)} – ${format(end)}`
 }
 
 function calendarDates(month: string): Array<{ date: string; inMonth: boolean }> {
@@ -116,6 +148,7 @@ export function App() {
   const [state, setState] = useState<ProductState | null>(null)
   const [screen, setScreen] = useState<Screen>('today')
   const [taskView, setTaskView] = useState<TaskListView>('today')
+  const [taskPeriodDate, setTaskPeriodDate] = useState(localDate())
   const [calendarMonth, setCalendarMonth] = useState(localDate().slice(0, 7))
   const [nowMs, setNowMs] = useState(Date.now())
   const [taskDialogOpen, setTaskDialogOpen] = useState(false)
@@ -128,10 +161,12 @@ export function App() {
   const [activity, setActivity] = useState('')
   const [distractionFree, setDistractionFree] = useState(false)
   const [syncError, setSyncError] = useState('')
+  const [showCompletionCelebration, setShowCompletionCelebration] = useState(false)
   const [lifeAreaText, setLifeAreaText] = useState('')
   const [syncPulse, setSyncPulse] = useState(0)
   const syncing = useRef(false)
   const autoCompleted = useRef(new Set<string>())
+  const previousCompletionDates = useRef<string[] | null>(null)
 
   useEffect(() => {
     let active = true
@@ -195,9 +230,23 @@ export function App() {
     run({ type: 'day.ensure', localDate: today })
   }, [today, state])
 
+  const moveTaskPeriod = (direction: -1 | 1) => {
+    if (taskView === 'today') {
+      setTaskPeriodDate(current => shiftDate(current, direction))
+    } else if (taskView === 'week') {
+      setTaskPeriodDate(current => shiftDate(current, direction * 7))
+    } else {
+      const nextMonth = shiftMonth(taskPeriodDate.slice(0, 7), direction)
+      setTaskPeriodDate(`${nextMonth}-01`)
+      setCalendarMonth(nextMonth)
+    }
+  }
+  const taskPeriod = taskView === 'calendar' ? `${calendarMonth}-01` : taskPeriodDate
+  const taskPeriodTitle = taskPeriodLabel(taskPeriod, taskView)
+
   const visibleTasks = useMemo(() => state?.tasks.filter(task =>
-    isTaskVisibleInView(task, taskView, today, calendarMonth)
-  ) ?? [], [state?.tasks, taskView, today, calendarMonth])
+    isTaskVisibleInView(task, taskView, taskPeriodDate, calendarMonth)
+  ) ?? [], [state?.tasks, taskView, taskPeriodDate, calendarMonth])
   const allActiveTasks = state?.tasks.filter(task => task.status === 'active') ?? []
   const focusEligibleTasks = allActiveTasks.filter(task => task.focusMinutes !== undefined)
   useEffect(() => {
@@ -205,16 +254,36 @@ export function App() {
       setLinkedTaskId('')
     }
   }, [linkedTaskId, state?.tasks])
-  const activeTasks = visibleTasks.filter(task => task.status === 'active')
+  const activeTasks = visibleTasks.filter(task => task.status === 'active').sort((left, right) => {
+    const leftOverdue = isOverdue(left, taskPeriodDate)
+    const rightOverdue = isOverdue(right, taskPeriodDate)
+    return Number(rightOverdue) - Number(leftOverdue) || (left.dueDate ?? left.occurrenceDate).localeCompare(right.dueDate ?? right.occurrenceDate)
+  })
   const completedTasks = visibleTasks.filter(task => task.status === 'completed')
   const unscheduledCalendarTasks = taskView === 'calendar'
     ? activeTasks.filter(task => task.recurrence === 'none' && !task.dueDate)
     : []
-  const completedTodayTasks = state?.tasks.filter(task => task.status === 'completed' && isTaskVisibleToday(task, today)) ?? []
-  const todayTasks = state?.tasks.filter(task => isTaskVisibleToday(task, today)) ?? []
+  const completedTodayTasks = state?.tasks.filter(task => task.status === 'completed' && isTaskCountedOnDate(task, today)) ?? []
+  const todayTasks = state?.tasks.filter(task => isTaskCountedOnDate(task, today)) ?? []
   const todayListComplete = todayTasks.length > 0 && todayTasks.every(task => task.status === 'completed')
   const completionPercent = visibleTasks.length ? Math.round((completedTasks.length / visibleTasks.length) * 100) : 0
   const timerReading = state?.activeTimer ? readTimer(state.activeTimer, nowMs) : null
+
+  useEffect(() => {
+    if (!state) return
+    const dates = state.dailyCompletionDates ?? []
+    const previouslyRecordedDates = previousCompletionDates.current
+    previousCompletionDates.current = [...dates]
+    if (previouslyRecordedDates && dates.some(date => !previouslyRecordedDates.includes(date))) {
+      setShowCompletionCelebration(true)
+    }
+  }, [state])
+
+  useEffect(() => {
+    if (!showCompletionCelebration) return
+    const timeout = window.setTimeout(() => setShowCompletionCelebration(false), 5000)
+    return () => window.clearTimeout(timeout)
+  }, [showCompletionCelebration])
 
   useEffect(() => {
     const timer = state?.activeTimer
@@ -389,7 +458,7 @@ export function App() {
 
             <section className="dashboard-grid">
               <div className="task-panel card">
-                <div className="section-heading task-heading"><label className="task-view-select"><span>Show tasks for</span><select value={taskView} onChange={event => setTaskView(event.target.value as TaskListView)}><option value="today">Today</option><option value="week">This week</option><option value="month">This month</option><option value="calendar">Calendar</option></select></label><span className="count-badge">{activeTasks.length} open</span></div>
+                <div className="section-heading task-heading"><label className="task-view-select"><span>Show tasks for</span><select value={taskView} onChange={event => setTaskView(event.target.value as TaskListView)}><option value="today">Today</option><option value="week">This week</option><option value="month">This month</option><option value="calendar">Calendar</option></select></label><div className="task-period-controls" aria-label="Change task date range"><button type="button" aria-label={`Previous ${taskView === 'today' ? 'day' : taskView === 'week' ? 'week' : 'month'}`} onClick={() => moveTaskPeriod(-1)}>‹</button><span aria-live="polite">{taskPeriodTitle}</span><button type="button" aria-label={`Next ${taskView === 'today' ? 'day' : taskView === 'week' ? 'week' : 'month'}`} onClick={() => moveTaskPeriod(1)}>›</button></div><span className="count-badge">{activeTasks.length} open</span></div>
                 {state.settings.streaksEnabled && taskView !== 'calendar' && <>
                   <div className="progress-track"><span style={{ width: `${completionPercent}%` }} /></div>
                   <p className="progress-copy">{completionPercent}% complete · one small step at a time</p>
@@ -398,7 +467,7 @@ export function App() {
                 {taskView === 'calendar' ? (
                   <div className="calendar-view">
                     {unscheduledCalendarTasks.length > 0 && <section className="unscheduled-tasks"><div><strong>Unscheduled</strong><span>Tasks without a date stay visible here.</span></div><div>{unscheduledCalendarTasks.map(task => <button key={task.id} onClick={() => setViewingTask(task)}>{task.title}</button>)}</div></section>}
-                    <div className="calendar-toolbar"><button aria-label="Previous month" onClick={() => setCalendarMonth(current => shiftMonth(current, -1))}>←</button><strong>{calendarTitle}</strong><button aria-label="Next month" onClick={() => setCalendarMonth(current => shiftMonth(current, 1))}>→</button></div>
+                    <div className="calendar-toolbar"><button aria-label="Previous month" onClick={() => { const month = shiftMonth(calendarMonth, -1); setCalendarMonth(month); setTaskPeriodDate(`${month}-01`) }}>←</button><strong>{calendarTitle}</strong><button aria-label="Next month" onClick={() => { const month = shiftMonth(calendarMonth, 1); setCalendarMonth(month); setTaskPeriodDate(`${month}-01`) }}>→</button></div>
                     <div className="calendar-weekdays">{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => <span key={day}>{day}</span>)}</div>
                     <div className="calendar-grid">{calendarCells.map(cell => {
                       const dayTasks = visibleTasks.filter(task => !(task.status === 'active' && task.recurrence === 'none' && !task.dueDate) && (task.dueDate ?? task.occurrenceDate) === cell.date)
@@ -409,9 +478,9 @@ export function App() {
                   <div className="task-list">
                     {activeTasks.length === 0 && <div className="empty-state"><img className="empty-state-image" src={gromitEmpty} alt="moonim empty task list" /><p>Add a task or choose another view.</p></div>}
                     {activeTasks.map(task => (
-                      <article className="task-row" key={task.id}>
+                      <article className={`task-row ${isOverdue(task, today) ? 'overdue' : ''}`} key={task.id}>
                         <button className="check" aria-label={`Complete ${task.title}`} onClick={() => run({ type: 'task.complete', taskId: task.id })} />
-                        <button className="task-copy task-open" aria-label={`Open ${task.title}`} onClick={() => setViewingTask(task)}><strong>{task.title}</strong>{task.description && <span className="task-description-preview">{task.description}</span>}<span className="task-meta"><span className="area-tag">{task.lifeArea || 'General'}</span><span>{friendlyDate(task.dueDate)}</span>{friendlyTime(task.scheduledTime) && <span>{friendlyTime(task.scheduledTime)}</span>}{task.focusMinutes && <span>{task.focusMinutes} min focus</span>}{task.recurrence !== 'none' && <span>{recurrenceLabel(task.recurrence)}</span>}{task.priority && <span className={`priority ${task.priority}`}>{task.priority}</span>}</span></button>
+                        <button className="task-copy task-open" aria-label={`Open ${task.title}`} onClick={() => setViewingTask(task)}><strong>{task.title}{isOverdue(task, today) && <span className="overdue-label"> · OVERDUE</span>}</strong>{task.description && <span className="task-description-preview">{task.description}</span>}<span className="task-meta"><span className="area-tag">{task.lifeArea || 'General'}</span><span>{friendlyDate(task.dueDate)}</span>{friendlyTime(task.scheduledTime) && <span>{friendlyTime(task.scheduledTime)}</span>}{task.focusMinutes && <span>{task.focusMinutes} min focus</span>}{task.recurrence !== 'none' && <span>{recurrenceLabel(task.recurrence)}</span>}{task.priority && <span className={`priority ${task.priority}`}>{task.priority}</span>}</span></button>
                         <div className="row-actions">{task.focusMinutes && <button onClick={() => { setLinkedTaskId(task.id); setActivity(task.title) }} aria-label={`Focus on ${task.title}`}>Focus</button>}<button onClick={() => openEditTask(task)} aria-label={`Edit ${task.title}`}>Edit</button><button onClick={() => requestDeleteTask(task)} aria-label={`Delete ${task.title}`}>×</button></div>
                       </article>
                     ))}
@@ -459,7 +528,7 @@ export function App() {
           <section className="page-stack">
             <header className="page-header"><div><p className="eyebrow">LOCAL HISTORY</p><h1>A record of your progress.</h1></div></header>
             <section className="card recurrence-history"><div className="section-heading"><div><span className="kicker">CONSISTENCY</span><h2>Recurring task streaks</h2></div></div>{recurringSeries.length === 0 ? <p className="muted">Daily, weekly, and monthly task streaks will appear here.</p> : <div className="streak-list">{recurringSeries.map(({ task, streak, unit }) => <button type="button" className="streak-task-button" aria-label={`Open ${task.title} streak details`} key={task.seriesId} onClick={() => setViewingTask(task)}><div><strong>{task.title}</strong><p>{task.recurrence} · best {streak.best} {streak.best === 1 ? unit : `${unit}s`}</p></div><span><strong>{streak.current}</strong> {unit} streak</span></button>)}</div>}</section>
-            <section className="card task-history"><div className="section-heading"><div><span className="kicker">TASKS</span><h2>All tasks</h2></div></div>{currentTasks.length === 0 ? <p className="muted">You do not have any tasks yet.</p> : <div className="task-history-list">{currentTasks.map(task => <button type="button" aria-label={`Open ${task.title} task`} key={task.id} onClick={() => setViewingTask(task)}><span><strong>{task.title}</strong><small>{task.status === 'active' ? 'Active' : 'Completed'}{task.description ? ` · ${task.description}` : task.lifeArea ? ` · ${task.lifeArea}` : ''}</small></span><time>{task.status === 'completed' ? new Date(task.completedAt ?? task.updatedAt).toLocaleDateString() : friendlyDate(task.dueDate)}</time></button>)}</div>}</section>
+            <section className="card task-history"><div className="section-heading"><div><span className="kicker">TASKS</span><h2>All tasks</h2></div>{currentTasks.length > 0 && <button className="clear-history" onClick={() => window.confirm('Clear all tasks from this device? Recurring routines will stop, while append-only Obsidian records remain.') && run({ type: 'task.history.clear' })}>Clear all</button>}</div>{currentTasks.length === 0 ? <p className="muted">You do not have any tasks yet.</p> : <div className="task-history-list">{currentTasks.map(task => <div className="task-history-row" key={task.id}><button type="button" aria-label={`Open ${task.title} task`} onClick={() => setViewingTask(task)}><span><strong>{task.title}</strong><small>{task.status === 'active' ? 'Active' : 'Completed'}{task.description ? ` · ${task.description}` : task.lifeArea ? ` · ${task.lifeArea}` : ''}</small></span><time>{task.status === 'completed' ? friendlyDate(task.completedForDate ?? task.completedAt?.slice(0, 10) ?? task.updatedAt.slice(0, 10)) : friendlyDate(task.dueDate ?? task.occurrenceDate)}</time></button><button type="button" className="task-history-delete" aria-label={`Remove ${task.title} from task history`} title="Remove this task occurrence" onClick={() => window.confirm(`Remove “${task.title}” from task history?`) && run({ type: 'task.delete', taskId: task.id, scope: 'occurrence' })}>×</button></div>)}</div>}</section>
             <div className="card history-list"><div className="section-heading"><div><span className="kicker">FOCUS</span><h2>Sessions</h2></div>{focusSessions.length > 0 && <button className="clear-history" onClick={() => window.confirm('Clear focus history from this device? Your append-only Obsidian records will remain.') && run({ type: 'history.clear', kind: 'focus' })}>Clear</button>}</div><div className="history-scroll">{focusSessions.length === 0 ? <p className="muted">Completed and cancelled focus sessions will appear here.</p> : [...focusSessions].reverse().map(session => <article key={session.id}><span className={`history-icon ${session.status}`}>{session.status === 'completed' ? '✓' : '×'}</span><div><strong>{session.activity || state.tasks.find(task => task.id === session.taskId)?.title || 'Focused work'}</strong><p>{actualDuration(session.activeSeconds)} active · {session.status}</p></div><time>{new Date(session.startedAt).toLocaleDateString()}</time></article>)}</div></div>
           </section>
         )}
@@ -483,6 +552,8 @@ export function App() {
       {deletingTask && <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && setDeletingTask(null)}><section className="delete-dialog card" role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title"><span className="kicker">CONFIRM DELETE</span><h2 id="delete-dialog-title">Delete {deletingTask.title}?</h2><p>{deletingTask.recurrence === 'none' ? 'This removes the task from moonim. Its append-only activity record is preserved.' : 'Choose whether to remove only this occurrence or the entire recurring routine.'}</p><div className="dialog-actions delete-actions"><button type="button" className="secondary" onClick={() => setDeletingTask(null)}>Cancel</button>{deletingTask.recurrence === 'none' ? <button type="button" className="danger-button" aria-label="Confirm delete task" onClick={() => confirmDeleteTask('occurrence')}>Delete task</button> : <><button type="button" className="secondary" onClick={() => confirmDeleteTask('occurrence')}>Delete this occurrence</button><button type="button" className="danger-button" onClick={() => confirmDeleteTask('series')}>Delete whole {deletingTask.recurrence} routine</button></>}</div></section></div>}
 
       {taskDialogOpen && <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && setTaskDialogOpen(false)}><form className="task-dialog" onSubmit={saveTask}><div className="dialog-heading"><div><span className="kicker">{editingTask ? 'EDIT TASK' : 'NEW TASK'}</span><h2>{editingTask ? 'Refine this step' : 'What matters today?'}</h2></div><button type="button" onClick={() => setTaskDialogOpen(false)}>×</button></div><label>Task title<input autoFocus value={draft.title} onChange={event => setDraft(current => ({ ...current, title: event.target.value }))} placeholder="e.g. Take morning medication" /></label><label>Description<textarea value={draft.description} onChange={event => setDraft(current => ({ ...current, description: event.target.value }))} placeholder="Add notes, context, or a definition of done." /></label><div className="form-grid"><label>Life area<select value={draft.lifeArea} onChange={event => setDraft(current => ({ ...current, lifeArea: event.target.value }))}>{state.settings.lifeAreas.map(area => <option key={area}>{area}</option>)}</select></label><label>Priority<select value={draft.priority} onChange={event => setDraft(current => ({ ...current, priority: event.target.value as TaskDraft['priority'] }))}><option value="">No priority</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label><label>Due date<input type="date" value={draft.dueDate} onChange={event => setDraft(current => ({ ...current, dueDate: event.target.value }))} /></label><label>Time<input type="time" value={draft.scheduledTime} onChange={event => setDraft(current => ({ ...current, scheduledTime: event.target.value }))} /></label><label>Focus duration (minutes)<input type="number" min="1" max="180" step="1" value={draft.focusMinutes} onChange={event => setDraft(current => ({ ...current, focusMinutes: event.target.value }))} placeholder="Optional, e.g. 30" /></label>{!editingTask && <label>Repeat<select value={draft.recurrence} onChange={event => setDraft(current => ({ ...current, recurrence: event.target.value as Recurrence }))}><option value="none">Does not repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></label>}</div><div className="dialog-actions"><button type="button" className="secondary" onClick={() => setTaskDialogOpen(false)}>Cancel</button><button className="primary" type="submit">{editingTask ? 'Save changes' : 'Create task'}</button></div></form></div>}
+
+      {showCompletionCelebration && <div className="celebration-backdrop" role="presentation" onClick={() => setShowCompletionCelebration(false)}><section className="celebration-card" role="dialog" aria-modal="true" aria-label="Congratulations"><img src={congratulationsImage} alt="Well done lad! Wallace and Gromit celebrate" /><h2>Well done!</h2><p>You completed everything for today.</p></section></div>}
     </div>
   )
 }
