@@ -274,7 +274,7 @@ type TaskCreateCommand = {
 type TaskEditCommand = {
   type: 'task.edit'
   taskId: string
-  changes: Partial<Pick<Task, 'title' | 'description' | 'lifeArea' | 'priority' | 'dueDate' | 'scheduledTime' | 'focusMinutes'>>
+  changes: Partial<Pick<Task, 'title' | 'description' | 'lifeArea' | 'priority' | 'dueDate' | 'scheduledTime' | 'focusMinutes' | 'recurrence'>>
 }
 
 export type ProductCommand =
@@ -422,6 +422,13 @@ export function applyProductCommand(
     if (task.recurrence !== 'none' && changedFields.includes('dueDate') && task.dueDate) {
       task.occurrenceDate = task.dueDate
       if (task.recurrence === 'monthly') task.recurrenceAnchorDate = task.dueDate
+    }
+    if (changedFields.includes('recurrence')) {
+      // A new repeat setting starts a new routine from this task; the old routine stops.
+      if (task.seriesId && !state.deletedSeriesIds.includes(task.seriesId)) state.deletedSeriesIds.push(task.seriesId)
+      task.seriesId = task.recurrence === 'none' ? undefined : context.id()
+      if (task.recurrence === 'weekly' || task.recurrence === 'monthly') task.occurrenceDate = task.dueDate ?? task.occurrenceDate
+      task.recurrenceAnchorDate = task.recurrence === 'monthly' ? task.occurrenceDate : undefined
     }
     if (!task.title.trim()) throw new Error('Task title is required')
     state.outbox.push(event(context, 'task_edited', task.id, task.status, {

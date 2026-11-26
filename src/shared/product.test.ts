@@ -633,4 +633,24 @@ describe('audit regressions', () => {
     }, context)
     expect(state.settings.lifeAreas).toEqual(['Health', 'Work'])
   })
+
+  it('changing Repeat on a task starts a new routine and stops the old one', () => {
+    let state = applyProductCommand(createInitialState(), {
+      type: 'task.create', title: 'Stretch', recurrence: 'daily'
+    }, on('2026-11-20'))
+    const original = state.tasks[0]
+
+    state = applyProductCommand(state, { type: 'task.edit', taskId: original.id, changes: { recurrence: 'none' } }, on('2026-11-20'))
+    state = ensure(state, '2026-11-21')
+    expect(state.tasks).toHaveLength(1)
+    expect(state.tasks[0]).toMatchObject({ recurrence: 'none', seriesId: undefined })
+
+    state = applyProductCommand(state, {
+      type: 'task.edit', taskId: original.id, changes: { recurrence: 'weekly', dueDate: '2026-11-23' }
+    }, on('2026-11-21'))
+    expect(state.tasks[0]).toMatchObject({ recurrence: 'weekly', occurrenceDate: '2026-11-23' })
+    expect(state.tasks[0].seriesId).toBeDefined()
+    state = ensure(state, '2026-11-30')
+    expect(state.tasks.map(task => task.occurrenceDate)).toEqual(['2026-11-23', '2026-11-30'])
+  })
 })

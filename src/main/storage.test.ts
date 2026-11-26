@@ -441,4 +441,15 @@ describe('saves that previously failed validation', () => {
       new Date(Date.UTC(2026, 0, 1) + index * 86_400_000).toISOString().slice(0, 10))
     expect(isProductState({ ...validState(), dailyCompletionDates: dates })).toBe(true)
   })
+
+  it('stays valid after Repeat is changed while editing a task', () => {
+    let state = applyProductCommand(createInitialState(), {
+      type: 'task.create', title: 'Stretch', recurrence: 'daily', dueDate: '2026-11-26'
+    }, context)
+    for (const recurrence of ['monthly', 'weekly', 'none', 'daily'] as const) {
+      state = applyProductCommand(state, { type: 'task.edit', taskId: state.tasks[0].id, changes: { recurrence } }, context)
+      expect(isProductState(state)).toBe(true)
+    }
+  })
 })
+
