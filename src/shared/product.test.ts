@@ -340,20 +340,20 @@ describe('Today visibility seam', () => {
 })
 
 describe('product timer seam', () => {
-  it('rejects linking a task that does not define a focus duration', () => {
+  it('links a task without its own focus duration and rejects a finished one', () => {
     let state = applyProductCommand(createInitialState(), {
       type: 'task.create',
       title: 'Review notes',
       recurrence: 'none'
     }, context)
+    const taskId = state.tasks[0].id
 
-    expect(() => applyProductCommand(state, {
-        type: 'timer.start',
-        kind: 'focus',
-        plannedSeconds: 1500,
-        taskId: state.tasks[0].id
-      }, { ...context, nowMs: 0 }))
-      .toThrow('Linked tasks require a focus duration')
+    const started = applyProductCommand(state, { type: 'timer.start', kind: 'focus', plannedSeconds: 1500, taskId }, { ...context, nowMs: 0 })
+    expect(started.activeTimer).toMatchObject({ taskId, plannedSeconds: 1500 })
+
+    state = applyProductCommand(state, { type: 'task.complete', taskId }, context)
+    expect(() => applyProductCommand(state, { type: 'timer.start', kind: 'focus', plannedSeconds: 1500, taskId }, { ...context, nowMs: 0 }))
+      .toThrow('Only active tasks can be linked')
   })
 
   it('uses an optional task focus duration instead of the global default', () => {
@@ -683,6 +683,21 @@ describe('audit regressions', () => {
 
     state = applyProductCommand(state, { type: 'task.delete', taskId: state.tasks[1].id, scope: 'series' }, on('2026-11-26'))
     expect(upcomingOccurrences(state, '2026-11-26', '2027-01-15').map(task => task.title)).not.toContain('Weekly review')
+  })
+
+  it('keeps only the newest unfinished copy of a missed daily routine and breaks its streak', () => {
+    let state = applyProductCommand(createInitialState(), {
+      type: 'task.create', title: 'Journal', recurrence: 'daily'
+    }, on('2026-11-20'))
+    const seriesId = state.tasks[0].seriesId!
+    state = applyProductCommand(state, { type: 'task.complete', taskId: state.tasks[0].id }, on('2026-11-20'))
+    for (const date of ['2026-11-21', '2026-11-22', '2026-11-23']) state = ensure(state, date)
+
+    expect(state.tasks.map(task => [task.occurrenceDate, task.status])).toEqual([
+      ['2026-11-20', 'completed'], ['2026-11-23', 'active']
+    ])
+    expect(state.outbox.filter(item => item.eventType === 'task_deleted')).toHaveLength(2)
+    expect(recurringTaskStreak(state.tasks, seriesId, '2026-11-23').current).toBe(0)
   })
 })
 

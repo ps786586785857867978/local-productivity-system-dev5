@@ -64,7 +64,12 @@ function assertTrustedSender(event: IpcMainInvokeEvent): void {
   }
 }
 
-async function loadState(): Promise<ProductState | null> {
+async function loadState(): Promise<{ state: ProductState | null; quarantinedPath: string | null }> {
+  const state = await loadStoredState()
+  return { state, quarantinedPath: stateStore.quarantinedPath() }
+}
+
+async function loadStoredState(): Promise<ProductState | null> {
   await ensureLegacyMigration()
   const state = await stateStore.load()
   if (!state) {
@@ -89,7 +94,7 @@ async function loadState(): Promise<ProductState | null> {
 
 async function saveState(input: unknown): Promise<void> {
   if (!isProductState(input)) {
-    return Promise.reject(new Error('Refusing to save an invalid Gentleday state'))
+    return Promise.reject(new Error('Refusing to save an invalid moonim state'))
   }
   const settings = { ...input.settings }
   const configuredVaultPath = vaultAccess.configuredPath()
@@ -115,7 +120,9 @@ function createWindow(): void {
     minWidth: 980,
     minHeight: 680,
     title: 'moonim',
-    backgroundColor: '#e7e1d5',
+    backgroundColor: LIGHT_BACKGROUND,
+    // Shown once the renderer has applied the saved theme, so dark mode doesn't flash light.
+    show: false,
     titleBarStyle: 'hiddenInset',
     webPreferences: {
       preload: join(currentDir, '../preload/index.js'),
@@ -129,9 +136,33 @@ function createWindow(): void {
   if (developmentRendererUrl) void mainWindow.loadURL(developmentRendererUrl)
   else void mainWindow.loadFile(packagedRendererPath)
 
+  const window = mainWindow
+  const fallback = setTimeout(() => { if (!window.isDestroyed()) window.show() }, 3000)
   mainWindow.on('closed', () => {
+    clearTimeout(fallback)
     mainWindow = null
   })
+}
+
+const LIGHT_BACKGROUND = '#ded6c8'
+const DARK_BACKGROUND = '#20241d'
+let timerNotification: ReturnType<typeof setTimeout> | undefined
+
+// Runs in the main process so the alert still fires while the window is closed.
+function scheduleTimerNotification(endsAtMs: unknown, title: unknown): void {
+  clearTimeout(timerNotification)
+  timerNotification = undefined
+  if (endsAtMs === null) return
+  if (typeof endsAtMs !== 'number' || !Number.isFinite(endsAtMs) || typeof title !== 'string' || title.length > 200) {
+    throw new Error('Invalid timer notification')
+  }
+  const delay = Math.min(Math.max(0, endsAtMs - Date.now()), 24 * 60 * 60 * 1000)
+  timerNotification = setTimeout(() => {
+    timerNotification = undefined
+    if (Notification.isSupported()) {
+      new Notification({ title, body: 'Your time is complete. Start the next phase when you are ready.' }).show()
+    }
+  }, delay)
 }
 
 function registerIpcHandlers(): void {
@@ -158,6 +189,15 @@ function registerIpcHandlers(): void {
   ipcMain.handle('vault:append', (event, _rendererSuppliedPath: unknown, events: unknown) => {
     assertTrustedSender(event)
     return appendEvents(events)
+  })
+  ipcMain.handle('window:ready', (event, theme: unknown) => {
+    assertTrustedSender(event)
+    mainWindow?.setBackgroundColor(theme === 'dark' ? DARK_BACKGROUND : LIGHT_BACKGROUND)
+    if (mainWindow && !mainWindow.isVisible()) mainWindow.show()
+  })
+  ipcMain.handle('timer:schedule', (event, endsAtMs: unknown, title: unknown) => {
+    assertTrustedSender(event)
+    scheduleTimerNotification(endsAtMs, title)
   })
   ipcMain.handle('app:notify', (event, title: unknown, body: unknown) => {
     assertTrustedSender(event)

@@ -488,13 +488,13 @@ export function applyProductCommand(
     const linkedTask = command.kind === 'focus' && command.taskId
       ? requireTask(state, command.taskId)
       : undefined
-    if (linkedTask && (linkedTask.status !== 'active' || linkedTask.focusMinutes === undefined)) {
-      throw new Error('Linked tasks require a focus duration')
+    if (linkedTask && linkedTask.status !== 'active') {
+      throw new Error('Only active tasks can be linked to a focus session')
     }
     const timer = startTimer({
       id: context.id(),
       kind: command.kind,
-      plannedSeconds: linkedTask ? linkedTask.focusMinutes! * 60 : command.plannedSeconds,
+      plannedSeconds: linkedTask?.focusMinutes ? linkedTask.focusMinutes * 60 : command.plannedSeconds,
       startedAtMs: nowMs,
       taskId: command.taskId,
       activity: command.activity?.trim() || undefined
@@ -616,6 +616,15 @@ export function applyProductCommand(
       completedAt: undefined,
       completedForDate: undefined
     }
+    // Daily routines keep only the newest unfinished copy so missed days don't pile up.
+    // Removing (not deleting) the missed copies leaves a gap, so the streak still breaks.
+    // Weekly/monthly copies stay: a missed bill or review usually still needs doing.
+    const missed = template.recurrence !== 'daily' ? [] : state.tasks.filter(task =>
+      task.seriesId === seriesId && task.status === 'active' && task.occurrenceDate < occurrenceDate)
+    for (const task of missed) {
+      state.outbox.push(event(context, 'task_deleted', task.id, 'deleted', { reason: 'missed', task: { ...task } }))
+    }
+    state.tasks = state.tasks.filter(task => !missed.includes(task))
     state.tasks.push(occurrence)
   }
   state.dailyCompletionDates = updateDailyCompletionDates(state.dailyCompletionDates, state.tasks, context.localDate)

@@ -8,7 +8,7 @@ function eventFolder(eventType: LogEvent['eventType']): 'Tasks' | 'Focus' | 'Bre
 
 export function vaultRelativePath(event: LogEvent): string {
   const [year, month] = event.localDate.split('-')
-  return `Gentleday/${eventFolder(event.eventType)}/${year}/${month}/${event.localDate}.md`
+  return `moonim/${eventFolder(event.eventType)}/${year}/${month}/${event.localDate}.md`
 }
 
 export function formatMarkdownEvent(event: LogEvent): string {

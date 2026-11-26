@@ -283,10 +283,11 @@ describe('serialized state storage', () => {
     const target = join(directory, 'state.json')
     const store = createStateStore(target)
 
-    await expect(store.save({ version: 1 })).rejects.toThrow('invalid Gentleday state')
+    await expect(store.save({ version: 1 })).rejects.toThrow('invalid moonim state')
     await writeFile(target, JSON.stringify({ ...validState(), outbox: [{}] }), 'utf8')
     await expect(store.load()).resolves.toBeNull()
     expect((await readdir(directory)).some(name => name.startsWith('state.json.corrupt-'))).toBe(true)
+    expect(store.quarantinedPath()).toMatch(/state\.json\.corrupt-/)
   })
 
   it('reloads a paused active timer for process-restart recovery', async () => {
@@ -343,7 +344,7 @@ describe('vault append safety', () => {
     const event = validEvent()
 
     const results = await Promise.all([append([event]), append([event])])
-    const file = await readFile(join(vault, 'Gentleday/Tasks/2026/09/2026-09-27.md'), 'utf8')
+    const file = await readFile(join(vault, 'moonim/Tasks/2026/09/2026-09-27.md'), 'utf8')
 
     expect(results).toEqual([['event-1'], ['event-1']])
     expect(file.match(/- Event ID: event-1/g)).toHaveLength(1)
@@ -352,7 +353,7 @@ describe('vault append safety', () => {
   it('rejects a symlinked directory that escapes the approved vault', async () => {
     const vault = await temporaryDirectory()
     const outside = await temporaryDirectory()
-    await symlink(outside, join(vault, 'Gentleday'))
+    await symlink(outside, join(vault, 'moonim'))
     const approval = await approveVaultDirectory(vault)
 
     await expect(appendEventsToVault(approval, [validEvent()])).rejects.toThrow('escapes the approved vault')
@@ -371,7 +372,7 @@ describe('vault append safety', () => {
 
     await mkdir(vault)
     await expect(append([validEvent()])).resolves.toEqual(['event-1'])
-    await expect(readFile(join(vault, 'Gentleday/Tasks/2026/09/2026-09-27.md'), 'utf8'))
+    await expect(readFile(join(vault, 'moonim/Tasks/2026/09/2026-09-27.md'), 'utf8'))
       .resolves.toContain('- Event ID: event-1')
   })
 

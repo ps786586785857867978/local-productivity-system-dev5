@@ -280,29 +280,31 @@ export function createStateStore(target: string): {
   load(): Promise<ProductState | null>
   save(state: unknown): Promise<void>
   flush(): Promise<void>
+  /** Where the last unreadable state file was moved, so the user can be told. */
+  quarantinedPath(): string | null
 } {
   const queue = createQueue()
+  let quarantined: string | null = null
 
   return {
     async load(): Promise<ProductState | null> {
       try {
         const parsed: unknown = JSON.parse(await readFile(target, 'utf8'))
-        if (!isProductState(parsed)) throw new Error('Invalid Gentleday state on disk')
+        if (!isProductState(parsed)) throw new Error('Invalid moonim state on disk')
         return parsed
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
-        try {
-          await rename(target, `${target}.corrupt-${Date.now()}-${randomUUID()}`)
-        } catch {
-          // Loading safely falls back to a clean state if quarantine is unavailable.
-        }
+        const destination = `${target}.corrupt-${Date.now()}-${randomUUID()}`
+        // If the file can't be moved aside, fail instead of letting the next save overwrite it.
+        await rename(target, destination)
+        quarantined = destination
         return null
       }
     },
 
     save(state: unknown): Promise<void> {
       if (!isProductState(state)) {
-        return Promise.reject(new Error('Refusing to save an invalid Gentleday state'))
+        return Promise.reject(new Error('Refusing to save an invalid moonim state'))
       }
       return queue.enqueue(async () => {
         const temporary = `${target}.tmp-${process.pid}-${randomUUID()}`
@@ -320,7 +322,10 @@ export function createStateStore(target: string): {
 
     flush(): Promise<void> {
       return queue.flush()
-    }
+    },
+    quarantinedPath(): string | null {
+      return quarantined
+    },
   }
 }
 
@@ -440,7 +445,7 @@ async function recheckParentBeforeOpen(approval: VaultApproval, parent: string):
 
 export async function appendEventsToVault(approval: VaultApproval, events: unknown): Promise<string[]> {
   if (!Array.isArray(events) || !events.every(isLogEvent)) {
-    throw new Error('Refusing to append invalid Gentleday events')
+    throw new Error('Refusing to append invalid moonim events')
   }
   await verifyVaultApproval(approval)
   const root = approval.canonicalPath

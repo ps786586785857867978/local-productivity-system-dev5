@@ -16,12 +16,12 @@ const taskEvent: LogEvent = {
 
 describe('Obsidian event seam', () => {
   it('routes task, focus, and break events to predictable daily Markdown files', () => {
-    expect(vaultRelativePath(taskEvent)).toBe('Gentleday/Tasks/2026/09/2026-09-27.md')
+    expect(vaultRelativePath(taskEvent)).toBe('moonim/Tasks/2026/09/2026-09-27.md')
     expect(vaultRelativePath({ ...taskEvent, eventType: 'focus_completed' })).toBe(
-      'Gentleday/Focus/2026/09/2026-09-27.md'
+      'moonim/Focus/2026/09/2026-09-27.md'
     )
     expect(vaultRelativePath({ ...taskEvent, eventType: 'break_completed' })).toBe(
-      'Gentleday/Breaks/2026/09/2026-09-27.md'
+      'moonim/Breaks/2026/09/2026-09-27.md'
     )
   })
 

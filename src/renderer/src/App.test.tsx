@@ -20,11 +20,13 @@ describe('moonim renderer layout and theme', () => {
     saveState.mockClear()
     loadedState = legacyStateWithoutTheme()
     window.gentleday = {
-      loadState: vi.fn(async () => loadedState),
+      loadState: vi.fn(async () => ({ state: loadedState, quarantinedPath: null })),
       saveState,
       chooseVault: vi.fn(async () => null),
       appendEvents: vi.fn(async () => []),
-      notify: vi.fn(async () => undefined)
+      notify: vi.fn(async () => undefined),
+      windowReady: vi.fn(async () => undefined),
+      scheduleTimerNotification: vi.fn(async () => undefined)
     }
   })
 
@@ -44,8 +46,10 @@ describe('moonim renderer layout and theme', () => {
   it('uses the moonim artwork and helper copy for an empty task list without an empty-state heading', async () => {
     render(<App />)
 
-    const emptyArtwork = await screen.findByRole('img', { name: /moonim empty task list/i })
-    expect(emptyArtwork.getAttribute('src')).toMatch(/gromit-empty\.png$/)
+    await screen.findByText('Add a task or choose another view.')
+    const emptyArtwork = document.querySelector('.empty-state-image')
+    expect(emptyArtwork?.getAttribute('src')).toMatch(/gromit-empty\.png$/)
+    expect(emptyArtwork?.getAttribute('alt')).toBe('')
     expect(screen.getByText('Add a task or choose another view.')).not.toBeNull()
     expect(screen.queryByText('Nothing here yet')).toBeNull()
   })
@@ -179,7 +183,7 @@ describe('moonim renderer layout and theme', () => {
     expect(screen.queryByRole('dialog', { name: /temporary task/i })).toBeNull()
   })
 
-  it('offers only active tasks with durations for focus and adopts the selected duration', async () => {
+  it('offers every active task for focus and adopts its duration or the default', async () => {
     const user = userEvent.setup()
     loadedState = createInitialState()
     loadedState.tasks.push(
@@ -204,14 +208,14 @@ describe('moonim renderer layout and theme', () => {
     render(<App />)
     const selector = await screen.findByRole('combobox', { name: /link a task/i })
     expect([...selector.querySelectorAll('option')].map(option => option.textContent)).toEqual([
-      'No task selected', 'Deep design work · 40 min'
+      'No task selected', 'Deep design work · 40 min', 'Loose note · 25 min'
     ])
 
     await user.selectOptions(selector, 'timed-task')
     expect(screen.getByText('40:00')).not.toBeNull()
   })
 
-  it('clears a linked focus task when editing removes its duration', async () => {
+  it('keeps a linked focus task on the default length when editing removes its duration', async () => {
     const user = userEvent.setup()
     loadedState = createInitialState()
     loadedState.tasks = [{
@@ -228,18 +232,18 @@ describe('moonim renderer layout and theme', () => {
     await user.clear(screen.getByRole('spinbutton', { name: /focus duration/i }))
     await user.click(screen.getByRole('button', { name: /save/i }))
 
-    await waitFor(() => expect((selector as HTMLSelectElement).value).toBe(''))
-    expect(screen.getByText('25:00')).not.toBeNull()
+    await waitFor(() => expect(screen.getByText('25:00')).not.toBeNull())
+    expect((selector as HTMLSelectElement).value).toBe('stale-link')
     await user.click(screen.getByRole('button', { name: /start focus/i }))
 
     expect(await screen.findByText('Stay with this moment')).not.toBeNull()
     await waitFor(() => {
       const savedState = saveState.mock.calls.at(-1)?.[0] as ProductState
-      expect(savedState.activeTimer?.taskId).toBeUndefined()
+      expect(savedState.activeTimer).toMatchObject({ taskId: 'stale-link', plannedSeconds: 1500 })
     })
   })
 
-  it('explains how to make tasks linkable when no active task has a duration', async () => {
+  it('explains that tasks without a duration use the default focus length', async () => {
     loadedState = createInitialState()
     loadedState.tasks = [{
       id: 'untimed', title: 'Untimed task', recurrence: 'none', occurrenceDate: '2026-09-29',
@@ -247,8 +251,7 @@ describe('moonim renderer layout and theme', () => {
     }]
     render(<App />)
 
-    expect(await screen.findByText(/no tasks have a focus duration yet/i)).not.toBeNull()
-    expect(screen.getByText(/open a task and choose edit task/i)).not.toBeNull()
+    expect(await screen.findByText(/use your default of 25 minutes/i)).not.toBeNull()
   })
 
   it('celebrates a completed Today list with the daily streak instead of focused minutes', async () => {
@@ -475,6 +478,74 @@ describe('moonim renderer layout and theme', () => {
     await user.click(screen.getByRole('button', { name: /next month/i }))
     await user.selectOptions(selector, 'today')
     expect(period()).toBe(todayLabel)
+  })
+
+  it('closes a dialog with Escape and returns focus to the button that opened it', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    const addTask = await screen.findByRole('button', { name: /add task/i })
+    await user.click(addTask)
+    expect(screen.getByRole('dialog', { name: /what matters today/i })).not.toBeNull()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: /what matters today/i })).toBeNull()
+    expect(document.activeElement).toBe(addTask)
+  })
+
+  it('shows a retry screen instead of hanging when saved data cannot be opened', async () => {
+    const user = userEvent.setup()
+    vi.mocked(window.gentleday.loadState).mockRejectedValueOnce(new Error('EACCES: permission denied'))
+    render(<App />)
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/couldn't open your saved data.*permission denied/i)
+    await user.click(screen.getByRole('button', { name: /try again/i }))
+    expect(await screen.findByRole('combobox', { name: /show tasks for/i })).not.toBeNull()
+  })
+
+  it('tells the user when unreadable saved data was set aside', async () => {
+    vi.mocked(window.gentleday.loadState).mockResolvedValueOnce({ state: null, quarantinedPath: '/data/state.json.corrupt-1' })
+    render(<App />)
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/started fresh.*state\.json\.corrupt-1/)
+  })
+
+  it('offers to undo a deleted task', async () => {
+    const user = userEvent.setup()
+    loadedState = createInitialState()
+    loadedState.tasks = [{
+      id: 'undo-me', title: 'Keep me', recurrence: 'none', occurrenceDate: '2026-09-29',
+      status: 'active', createdAt: '2026-09-29T08:00:00.000Z', updatedAt: '2026-09-29T08:00:00.000Z'
+    }]
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: /delete keep me/i }))
+    await user.click(screen.getByRole('button', { name: /confirm delete task/i }))
+    expect(screen.queryByRole('button', { name: /open keep me/i })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /^undo$/i }))
+    expect(await screen.findByRole('button', { name: /open keep me/i })).not.toBeNull()
+    await waitFor(() => expect(saveState).toHaveBeenLastCalledWith(expect.objectContaining({
+      tasks: [expect.objectContaining({ id: 'undo-me', status: 'active' })]
+    })))
+  })
+
+  it('confirms clearing focus history in an app dialog rather than a browser prompt', async () => {
+    const user = userEvent.setup()
+    const confirmSpy = vi.spyOn(window, 'confirm')
+    loadedState.sessions = [{
+      id: 'session-1', kind: 'focus', status: 'completed', plannedSeconds: 1500, activeSeconds: 1500, pausedSeconds: 0,
+      startedAt: '2026-09-29T08:00:00.000Z', endedAt: '2026-09-29T08:25:00.000Z', localDate: '2026-09-29'
+    }]
+    render(<App />)
+    await screen.findByRole('combobox', { name: /show tasks for/i })
+    await user.click(screen.getByRole('button', { name: /history/i }))
+    await user.click(screen.getByRole('button', { name: /^clear$/i }))
+
+    expect(screen.getByRole('alertdialog', { name: /clear focus history/i })).not.toBeNull()
+    await user.click(screen.getByRole('button', { name: /^clear history$/i }))
+    await waitFor(() => expect(saveState).toHaveBeenLastCalledWith(expect.objectContaining({ sessions: [] })))
+    expect(confirmSpy).not.toHaveBeenCalled()
+    confirmSpy.mockRestore()
   })
 })
 
