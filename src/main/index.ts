@@ -48,7 +48,8 @@ function ensureLegacyMigration(): Promise<void> {
   return legacyMigration
 }
 
-if (process.env.GENTLEDAY_DEBUG_PORT) {
+// Never expose a debugging port in the packaged app.
+if (process.env.GENTLEDAY_DEBUG_PORT && !app.isPackaged) {
   app.commandLine.appendSwitch('remote-debugging-port', process.env.GENTLEDAY_DEBUG_PORT)
 }
 

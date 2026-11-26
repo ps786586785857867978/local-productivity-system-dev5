@@ -13,10 +13,12 @@ export function vaultRelativePath(event: LogEvent): string {
 
 export function formatMarkdownEvent(event: LogEvent): string {
   const time = event.createdAt.includes('T') ? event.createdAt.split('T')[1].slice(0, 8) : event.createdAt
-  const details = JSON.stringify(event.details, null, 2)
-    .split('\n')
-    .map(line => `    ${line}`)
-    .join('\n')
+  const json = JSON.stringify(event.details, null, 2)
+  // An indented block after a list renders as list text in Obsidian, so use a fence
+  // longer than any backtick run in the content; titles can then never break out.
+  const longestRun = Math.max(0, ...(json.match(/`+/g) ?? []).map(run => run.length))
+  const fence = '`'.repeat(Math.max(3, longestRun + 1))
+  const details = `${fence}json\n${json}\n${fence}`
   return [
     `## ${time} — ${event.eventType}`,
     '',

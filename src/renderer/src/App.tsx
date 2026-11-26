@@ -238,12 +238,10 @@ export function App() {
       try {
         const deliveredIds = await window.gentleday.appendEvents(state.settings.vaultPath, pending)
         if (deliveredIds.length) {
-          const deliveredAt = localIso()
+          // Delivered events live in the vault now; drop them so the state file doesn't grow forever.
           setState(current => current ? {
             ...current,
-            outbox: current.outbox.map(item => deliveredIds.includes(item.id)
-              ? { ...item, deliveredAt }
-              : item)
+            outbox: current.outbox.filter(item => !item.deliveredAt && !deliveredIds.includes(item.id))
           } : current)
         }
         setVaultError('')
@@ -525,7 +523,7 @@ export function App() {
                       <article className={`task-row ${isOverdue(task, today) ? 'overdue' : ''}`} key={task.id}>
                         <button className="check" aria-label={`Complete ${task.title}`} onClick={() => run({ type: 'task.complete', taskId: task.id })} />
                         <button className="task-copy task-open" aria-label={`Open ${task.title}`} onClick={() => setViewingTask(task)}><strong>{task.title}{isOverdue(task, today) && <span className="overdue-label"> · OVERDUE</span>}</strong>{task.description && <span className="task-description-preview">{task.description}</span>}<span className="task-meta"><span className="area-tag">{task.lifeArea || 'General'}</span><span>{friendlyDate(task.dueDate)}</span>{friendlyTime(task.scheduledTime) && <span>{friendlyTime(task.scheduledTime)}</span>}{task.focusMinutes && <span>{task.focusMinutes} min focus</span>}{task.recurrence !== 'none' && <span>{recurrenceLabel(task.recurrence)}</span>}{task.priority && <span className={`priority ${task.priority}`}>{task.priority}</span>}</span></button>
-                        <div className="row-actions">{task.focusMinutes && <button onClick={() => { setLinkedTaskId(task.id); setActivity(task.title) }} aria-label={`Focus on ${task.title}`}>Focus</button>}<button onClick={() => openEditTask(task)} aria-label={`Edit ${task.title}`}>Edit</button><button onClick={() => requestDeleteTask(task)} aria-label={`Delete ${task.title}`}>×</button></div>
+                        <div className="row-actions">{task.focusMinutes && <button onClick={() => { setTimerKind('focus'); setLinkedTaskId(task.id); setActivity(task.title) }} aria-label={`Focus on ${task.title}`}>Focus</button>}<button onClick={() => openEditTask(task)} aria-label={`Edit ${task.title}`}>Edit</button><button onClick={() => requestDeleteTask(task)} aria-label={`Delete ${task.title}`}>×</button></div>
                       </article>
                     ))}
                   </div>

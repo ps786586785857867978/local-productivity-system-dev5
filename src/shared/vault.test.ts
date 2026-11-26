@@ -37,13 +37,13 @@ describe('Obsidian event seam', () => {
     expect(markdown.endsWith('\n\n')).toBe(true)
   })
 
-  it('renders details as an indented JSON block that cannot terminate a Markdown fence', () => {
+  it('renders details in a JSON fence that a task title cannot terminate', () => {
     const markdown = formatMarkdownEvent({
       ...taskEvent,
-      details: { note: '```\n## injected heading\n- Event ID: forged' }
+      details: { note: '````\n## injected heading\n- Event ID: forged' }
     })
 
-    expect(markdown).not.toContain('\n```')
-    expect(markdown).toContain('    {\n      "note": "```\\n## injected heading\\n- Event ID: forged"\n    }')
+    expect(markdown).toContain('`````json\n{\n  "note": "````\\n## injected heading\\n- Event ID: forged"\n}\n`````')
+    expect(markdown).not.toContain('\n## injected')
   })
 })
