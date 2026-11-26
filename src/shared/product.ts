@@ -599,18 +599,7 @@ export function applyProductCommand(
     return state
   }
 
-  const recurringSeries = new Map<string, Task>()
-  for (const task of state.tasks) {
-    if (task.recurrence !== 'none' && task.seriesId) {
-      const current = recurringSeries.get(task.seriesId)
-      if (!current || task.occurrenceDate > current.occurrenceDate ||
-        (task.occurrenceDate === current.occurrenceDate && task.updatedAt > current.updatedAt)) {
-        recurringSeries.set(task.seriesId, task)
-      }
-    }
-  }
-
-  for (const [seriesId, template] of recurringSeries) {
+  for (const [seriesId, template] of latestOccurrenceBySeries(state.tasks)) {
     if (state.deletedSeriesIds.includes(seriesId)) continue
     const occurrenceDate = latestDueOccurrence(template, command.localDate)
     if (!occurrenceDate) continue
@@ -631,6 +620,58 @@ export function applyProductCommand(
   }
   state.dailyCompletionDates = updateDailyCompletionDates(state.dailyCompletionDates, state.tasks, context.localDate)
   return state
+}
+
+function latestOccurrenceBySeries(tasks: readonly Task[]): Map<string, Task> {
+  const recurringSeries = new Map<string, Task>()
+  for (const task of tasks) {
+    if (task.recurrence !== 'none' && task.seriesId) {
+      const current = recurringSeries.get(task.seriesId)
+      if (!current || task.occurrenceDate > current.occurrenceDate ||
+        (task.occurrenceDate === current.occurrenceDate && task.updatedAt > current.updatedAt)) {
+        recurringSeries.set(task.seriesId, task)
+      }
+    }
+  }
+  return recurringSeries
+}
+
+const UPCOMING_ID_PREFIX = 'upcoming:'
+
+export function isUpcomingPreview(task: Task): boolean {
+  return task.id.startsWith(UPCOMING_ID_PREFIX)
+}
+
+/**
+ * Read-only previews of weekly/monthly occurrences after `today` up to `throughDate`.
+ * Real occurrences are only created once due (day.ensure); these let future periods show them.
+ */
+export function upcomingOccurrences(
+  state: Pick<ProductState, 'tasks' | 'deletedSeriesIds'>,
+  today: string,
+  throughDate: string
+): Task[] {
+  const previews: Task[] = []
+  for (const [seriesId, template] of latestOccurrenceBySeries(state.tasks)) {
+    if (template.recurrence === 'daily' || state.deletedSeriesIds.includes(seriesId)) continue
+    const anchorDate = template.recurrenceAnchorDate ?? template.occurrenceDate
+    for (
+      let date = nextRecurrenceDate(template.recurrence, template.occurrenceDate, anchorDate);
+      date <= throughDate;
+      date = nextRecurrenceDate(template.recurrence, date, anchorDate)
+    ) {
+      if (date <= today) continue
+      const { completedAt: _completedAt, completedForDate: _completedForDate, ...rest } = template
+      previews.push({
+        ...rest,
+        id: `${UPCOMING_ID_PREFIX}${seriesId}:${date}`,
+        occurrenceDate: date,
+        dueDate: template.dueDate ? date : undefined,
+        status: 'active'
+      })
+    }
+  }
+  return previews
 }
 
 /**

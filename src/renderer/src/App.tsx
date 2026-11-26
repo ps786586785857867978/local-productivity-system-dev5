@@ -5,6 +5,7 @@ import {
   dailyAppStreak,
   isTaskCountedOnDate,
   isTaskVisibleInView,
+  isUpcomingPreview,
   normalizeLifeAreas,
   recurringTaskStreak,
   type Priority,
@@ -12,7 +13,8 @@ import {
   type ProductState,
   type Recurrence,
   type Task,
-  type TaskListView
+  type TaskListView,
+  upcomingOccurrences
 } from '../../shared/product'
 import { readTimer, type TimerKind } from '../../shared/timer'
 import gromitEmpty from './assets/gromit-empty.png'
@@ -284,9 +286,14 @@ export function App() {
   const taskPeriod = taskView === 'calendar' ? `${calendarMonth}-01` : taskPeriodDate
   const taskPeriodTitle = taskPeriodLabel(taskPeriod, taskView)
 
-  const visibleTasks = useMemo(() => state?.tasks.filter(task =>
-    isTaskVisibleInView(task, taskView, taskPeriodDate, calendarMonth)
-  ) ?? [], [state?.tasks, taskView, taskPeriodDate, calendarMonth])
+  const visibleTasks = useMemo(() => {
+    if (!state) return []
+    // 40 days past the period start covers any displayed day, week or month.
+    const upcoming = upcomingOccurrences(state, today, shiftDate(taskPeriod, 40))
+      .filter(task => taskView !== 'today' || task.occurrenceDate === taskPeriodDate)
+    return [...state.tasks, ...upcoming].filter(task =>
+      isTaskVisibleInView(task, taskView, taskPeriodDate, calendarMonth))
+  }, [state?.tasks, state?.deletedSeriesIds, today, taskView, taskPeriod, taskPeriodDate, calendarMonth])
   const allActiveTasks = state?.tasks.filter(task => task.status === 'active') ?? []
   const focusEligibleTasks = allActiveTasks.filter(task => task.focusMinutes !== undefined)
   useEffect(() => {
@@ -514,13 +521,18 @@ export function App() {
                     <div className="calendar-weekdays">{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => <span key={day}>{day}</span>)}</div>
                     <div className="calendar-grid">{calendarCells.map(cell => {
                       const dayTasks = visibleTasks.filter(task => !(task.status === 'active' && task.recurrence === 'none' && !task.dueDate) && (task.dueDate ?? task.occurrenceDate) === cell.date)
-                      return <div className={`calendar-day ${cell.inMonth ? '' : 'outside'} ${cell.date === today ? 'today' : ''}`} key={cell.date}><span>{Number(cell.date.slice(-2))}</span><div>{dayTasks.map(task => <button className={task.status} title={task.title} key={task.id} onClick={() => setViewingTask(task)}>{task.scheduledTime ? `${task.scheduledTime} ` : ''}{task.title}</button>)}</div></div>
+                      return <div className={`calendar-day ${cell.inMonth ? '' : 'outside'} ${cell.date === today ? 'today' : ''}`} key={cell.date}><span>{Number(cell.date.slice(-2))}</span><div>{dayTasks.map(task => <button className={isUpcomingPreview(task) ? 'upcoming' : task.status} title={isUpcomingPreview(task) ? `${task.title} (upcoming)` : task.title} key={task.id} disabled={isUpcomingPreview(task)} onClick={() => setViewingTask(task)}>{task.scheduledTime ? `${task.scheduledTime} ` : ''}{task.title}</button>)}</div></div>
                     })}</div>
                   </div>
                 ) : <>
                   <div className="task-list">
                     {activeTasks.length === 0 && <div className="empty-state"><img className="empty-state-image" src={gromitEmpty} alt="moonim empty task list" /><p>Add a task or choose another view.</p></div>}
-                    {activeTasks.map(task => (
+                    {activeTasks.map(task => isUpcomingPreview(task) ? (
+                      <article className="task-row upcoming" key={task.id}>
+                        <span className="check" aria-hidden="true" />
+                        <div className="task-copy"><strong>{task.title}</strong>{task.description && <span className="task-description-preview">{task.description}</span>}<span className="task-meta"><span className="area-tag">{task.lifeArea || 'General'}</span><span>{friendlyDate(task.occurrenceDate)}</span>{friendlyTime(task.scheduledTime) && <span>{friendlyTime(task.scheduledTime)}</span>}<span>{recurrenceLabel(task.recurrence)} · upcoming</span></span></div>
+                      </article>
+                    ) : (
                       <article className={`task-row ${isOverdue(task, today) ? 'overdue' : ''}`} key={task.id}>
                         <button className="check" aria-label={`Complete ${task.title}`} onClick={() => run({ type: 'task.complete', taskId: task.id })} />
                         <button className="task-copy task-open" aria-label={`Open ${task.title}`} onClick={() => setViewingTask(task)}><strong>{task.title}{isOverdue(task, today) && <span className="overdue-label"> · OVERDUE</span>}</strong>{task.description && <span className="task-description-preview">{task.description}</span>}<span className="task-meta"><span className="area-tag">{task.lifeArea || 'General'}</span><span>{friendlyDate(task.dueDate)}</span>{friendlyTime(task.scheduledTime) && <span>{friendlyTime(task.scheduledTime)}</span>}{task.focusMinutes && <span>{task.focusMinutes} min focus</span>}{task.recurrence !== 'none' && <span>{recurrenceLabel(task.recurrence)}</span>}{task.priority && <span className={`priority ${task.priority}`}>{task.priority}</span>}</span></button>

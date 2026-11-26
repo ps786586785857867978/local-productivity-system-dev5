@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyProductCommand, createInitialState, dailyAppStreak, isTaskVisibleInView, isTaskVisibleToday, normalizeLifeAreas, recurringTaskStreak, type ProductState, type Task } from './product'
+import { applyProductCommand, createInitialState, dailyAppStreak, isTaskVisibleInView, isTaskVisibleToday, normalizeLifeAreas, upcomingOccurrences, recurringTaskStreak, type ProductState, type Task } from './product'
 
 const context = {
   now: '2026-09-27T08:00:00.000+02:00',
@@ -653,4 +653,36 @@ describe('audit regressions', () => {
     state = ensure(state, '2026-11-30')
     expect(state.tasks.map(task => task.occurrenceDate)).toEqual(['2026-11-23', '2026-11-30'])
   })
+
+  it('previews upcoming weekly and monthly occurrences after one is completed', () => {
+    let state = applyProductCommand(createInitialState(), {
+      type: 'task.create', title: 'Pay rent', dueDate: '2026-11-01', recurrence: 'monthly'
+    }, on('2026-11-01'))
+    state = applyProductCommand(state, {
+      type: 'task.create', title: 'Weekly review', dueDate: '2026-11-23', recurrence: 'weekly'
+    }, on('2026-11-01'))
+    state = applyProductCommand(state, {
+      type: 'task.create', title: 'Journal', recurrence: 'daily'
+    }, on('2026-11-01'))
+    state = applyProductCommand(state, { type: 'task.complete', taskId: state.tasks[0].id }, on('2026-11-01'))
+
+    const previews = upcomingOccurrences(state, '2026-11-26', '2027-01-15')
+    expect(previews.map(task => [task.title, task.occurrenceDate, task.dueDate, task.status])).toEqual([
+      ['Pay rent', '2026-12-01', '2026-12-01', 'active'],
+      ['Pay rent', '2027-01-01', '2027-01-01', 'active'],
+      ['Weekly review', '2026-11-30', '2026-11-30', 'active'],
+      ['Weekly review', '2026-12-07', '2026-12-07', 'active'],
+      ['Weekly review', '2026-12-14', '2026-12-14', 'active'],
+      ['Weekly review', '2026-12-21', '2026-12-21', 'active'],
+      ['Weekly review', '2026-12-28', '2026-12-28', 'active'],
+      ['Weekly review', '2027-01-04', '2027-01-04', 'active'],
+      ['Weekly review', '2027-01-11', '2027-01-11', 'active']
+    ])
+    expect(previews[0].completedAt).toBeUndefined()
+    expect(isTaskVisibleInView(previews[0], 'month', '2026-12-01')).toBe(true)
+
+    state = applyProductCommand(state, { type: 'task.delete', taskId: state.tasks[1].id, scope: 'series' }, on('2026-11-26'))
+    expect(upcomingOccurrences(state, '2026-11-26', '2027-01-15').map(task => task.title)).not.toContain('Weekly review')
+  })
 })
+
