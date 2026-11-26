@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createInitialState, type ProductState } from '../../shared/product'
@@ -394,5 +394,69 @@ describe('moonim renderer layout and theme', () => {
 
     expect(toggle.getAttribute('aria-pressed')).toBe('true')
     expect(document.querySelector('.app-shell')?.classList.contains('distraction-free')).toBe(true)
+  })
+
+  it('lets a timer default be retyped and saves it when the field is left', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByRole('combobox', { name: /show tasks for/i })
+    await user.click(screen.getByRole('button', { name: /settings/i }))
+
+    const focusMinutes = screen.getByRole('spinbutton', { name: /^focus minutes$/i }) as HTMLInputElement
+    await user.clear(focusMinutes)
+    expect(focusMinutes.value).toBe('')
+    await user.type(focusMinutes, '30')
+    expect(focusMinutes.value).toBe('30')
+    await user.tab()
+
+    await waitFor(() => expect(saveState).toHaveBeenLastCalledWith(expect.objectContaining({
+      settings: expect.objectContaining({ focusMinutes: 30 })
+    })))
+  })
+
+  it('shows a refused save on every screen and keeps the vault dot independent of form messages', async () => {
+    const user = userEvent.setup()
+    loadedState.settings.vaultPath = '/vault'
+    render(<App />)
+    await screen.findByRole('combobox', { name: /show tasks for/i })
+
+    await user.click(screen.getByRole('button', { name: /start focus/i }))
+    expect(screen.getByText(/choose a task or add a short focus description/i)).not.toBeNull()
+    expect(document.querySelector('.status-dot')?.classList.contains('connected')).toBe(true)
+
+    saveState.mockRejectedValueOnce(new Error("Error invoking remote method 'state:save': Error: Refusing to save"))
+    await user.click(screen.getByRole('button', { name: /settings/i }))
+    await user.click(screen.getByRole('checkbox', { name: /reduce motion/i }))
+    expect((await screen.findByRole('alert')).textContent).toMatch(/couldn't save your latest change/i)
+  })
+
+  it('splits life areas typed on separate lines', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByRole('combobox', { name: /show tasks for/i })
+    await user.click(screen.getByRole('button', { name: /settings/i }))
+
+    const areas = document.querySelector('.setting-card.wide textarea') as HTMLTextAreaElement
+    await user.clear(areas)
+    await user.type(areas, 'Health{Enter}Work')
+    await user.tab()
+
+    await waitFor(() => expect(saveState).toHaveBeenLastCalledWith(expect.objectContaining({
+      settings: expect.objectContaining({ lifeAreas: ['Health', 'Work'] })
+    })))
+    expect(areas.value).toBe('Health, Work')
+  })
+
+  it('moves the Today list to the new day when the app stays open past midnight', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date(2026, 10, 26, 23, 59, 58))
+    try {
+      render(<App />)
+      await screen.findByText(/Nov 26, 2026/)
+      await act(async () => { vi.advanceTimersByTime(3_000) })
+      expect(await screen.findByText(/Nov 27, 2026/)).not.toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

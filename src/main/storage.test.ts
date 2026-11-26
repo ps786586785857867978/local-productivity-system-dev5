@@ -16,6 +16,7 @@ import {
   migrateLegacyStateFile,
   shouldMigrateLegacyState
 } from './storage'
+import { applyProductCommand, createInitialState } from '../shared/product'
 
 const temporaryDirectories: string[] = []
 
@@ -404,5 +405,40 @@ describe('renderer origin policy', () => {
     expect(isLocalhostRendererUrl('http://[::1]:5173')).toBe(true)
     expect(isLocalhostRendererUrl('https://localhost:5173')).toBe(false)
     expect(isLocalhostRendererUrl('file:///tmp/index.html')).toBe(false)
+  })
+})
+
+describe('saves that previously failed validation', () => {
+  const context = {
+    now: '2026-11-26T09:00:00.000+01:00',
+    localDate: '2026-11-26',
+    timezone: 'Europe/Brussels',
+    offset: '+01:00',
+    id: (() => { let value = 0; return () => `audit-${++value}` })()
+  }
+
+  it('accepts life areas typed one per line', () => {
+    const state = applyProductCommand(createInitialState(), {
+      type: 'settings.update', changes: { lifeAreas: ['Health\nWork', 'y'.repeat(300)] }
+    }, context)
+    expect(isProductState(state)).toBe(true)
+  })
+
+  it('stays valid when the clock moves backwards during a timer', () => {
+    let state = applyProductCommand(createInitialState(), {
+      type: 'timer.start', kind: 'short_break', plannedSeconds: 300
+    }, { ...context, nowMs: 1_000_000 })
+    state = applyProductCommand(state, { type: 'timer.pause' }, { ...context, nowMs: 900_000 })
+    expect(isProductState(state)).toBe(true)
+    state = applyProductCommand(state, { type: 'timer.resume' }, { ...context, nowMs: 800_000 })
+    expect(isProductState(state)).toBe(true)
+    state = applyProductCommand(state, { type: 'timer.complete' }, { ...context, nowMs: 700_000 })
+    expect(isProductState(state)).toBe(true)
+  })
+
+  it('accepts more than three years of fully completed days', () => {
+    const dates = Array.from({ length: 1_500 }, (_, index) =>
+      new Date(Date.UTC(2026, 0, 1) + index * 86_400_000).toISOString().slice(0, 10))
+    expect(isProductState({ ...validState(), dailyCompletionDates: dates })).toBe(true)
   })
 })

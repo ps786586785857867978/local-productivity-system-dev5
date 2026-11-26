@@ -219,13 +219,16 @@ export function recurringTaskStreak(
   for (const date of [...statusesByDate.keys()].sort()) {
     if (date !== expectedDate) current = 0
     const statuses = statusesByDate.get(date)!
+    const nextDate = nextRecurrenceDate(recurrence, date, anchorDate)
     if (statuses.includes('completed')) {
       current += 1
       best = Math.max(best, current)
-    } else if (statuses.includes('active')) {
+    } else if (statuses.includes('active') && nextDate <= asOfDate) {
+      // Only a period that has already ended breaks the streak. Today's unfinished
+      // occurrence is still pending, so the streak keeps its value until tomorrow.
       current = 0
     }
-    expectedDate = nextRecurrenceDate(recurrence, date, anchorDate)
+    expectedDate = nextDate
   }
 
   if (expectedDate <= asOfDate) current = 0
@@ -359,9 +362,7 @@ function completeActiveTask(state: ProductState, task: Task, context: CommandCon
   if (task.status !== 'active') return false
   task.status = 'completed'
   task.completedAt = context.now
-  task.completedForDate = task.recurrence === 'none' && !task.dueDate
-    ? context.localDate
-    : task.recurrence === 'daily' ? task.occurrenceDate : task.dueDate ?? task.occurrenceDate
+  task.completedForDate = context.localDate
   task.updatedAt = context.now
   state.outbox.push(event(context, 'task_completed', task.id, task.status, { task: { ...task } }))
   return true
@@ -434,11 +435,7 @@ export function applyProductCommand(
   if (command.type === 'task.complete') {
     const task = requireTask(state, command.taskId)
     completeActiveTask(state, task, context)
-    const completionDate = task.completedForDate ?? context.localDate
-    state.dailyCompletionDates = updateDailyCompletionDates(state.dailyCompletionDates, state.tasks, completionDate)
-    if (completionDate !== context.localDate) {
-      state.dailyCompletionDates = updateDailyCompletionDates(state.dailyCompletionDates, state.tasks, context.localDate)
-    }
+    state.dailyCompletionDates = updateDailyCompletionDates(state.dailyCompletionDates, state.tasks, context.localDate)
     return state
   }
 
@@ -534,7 +531,7 @@ export function applyProductCommand(
       pausedSeconds: reading.pausedSeconds,
       startedAt: new Date(ended.startedAtMs).toISOString(),
       localDate: context.localDate,
-      endedAt: new Date(nowMs).toISOString()
+      endedAt: new Date(ended.endedAtMs ?? nowMs).toISOString()
     }
     state.sessions.push(session)
     state.activeTimer = undefined
@@ -559,9 +556,7 @@ export function applyProductCommand(
   }
 
   if (command.type === 'settings.update') {
-    const lifeAreas = command.changes.lifeAreas
-      ?.map(area => area.trim())
-      .filter((area, index, values) => area.length > 0 && values.indexOf(area) === index)
+    const lifeAreas = command.changes.lifeAreas && normalizeLifeAreas(command.changes.lifeAreas)
     state.settings = {
       ...state.settings,
       ...command.changes,
@@ -610,18 +605,15 @@ export function applyProductCommand(
 
   for (const [seriesId, template] of recurringSeries) {
     if (state.deletedSeriesIds.includes(seriesId)) continue
-    const exists = state.tasks.some(task => task.seriesId === seriesId && task.occurrenceDate === command.localDate)
+    const occurrenceDate = latestDueOccurrence(template, command.localDate)
+    if (!occurrenceDate) continue
+    const exists = state.tasks.some(task => task.seriesId === seriesId && task.occurrenceDate === occurrenceDate)
     if (exists) continue
-    if (!shouldCreateOccurrence(
-      template.recurrence,
-      template.recurrenceAnchorDate ?? template.occurrenceDate,
-      command.localDate
-    )) continue
     const occurrence: Task = {
       ...template,
       id: context.id(),
-      occurrenceDate: command.localDate,
-      dueDate: template.dueDate ? command.localDate : undefined,
+      occurrenceDate,
+      dueDate: template.dueDate ? occurrenceDate : undefined,
       status: 'active',
       createdAt: context.now,
       updatedAt: context.now,
@@ -634,21 +626,47 @@ export function applyProductCommand(
   return state
 }
 
-function shouldCreateOccurrence(recurrence: Recurrence, previousDate: string, targetDate: string): boolean {
-  if (recurrence === 'daily') return true
-  if (recurrence === 'monthly') {
-    const [anchorYear, anchorMonth, anchorDay] = previousDate.split('-').map(Number)
-    const [targetYear, targetMonth, targetDay] = targetDate.split('-').map(Number)
-    const elapsedMonths = (targetYear - anchorYear) * 12 + targetMonth - anchorMonth
-    if (elapsedMonths <= 0) return false
-    const lastDay = new Date(Date.UTC(targetYear, targetMonth, 0)).getUTCDate()
-    return targetDay === Math.min(anchorDay, lastDay)
+/**
+ * The occurrence that should exist for `targetDate`: today for daily routines, and
+ * for weekly/monthly routines the most recent due date on or before `targetDate`.
+ * Returns undefined when nothing newer than the latest existing occurrence is due,
+ * so a routine is caught up even if the app was closed on its exact due date.
+ */
+function latestDueOccurrence(template: Task, targetDate: string): string | undefined {
+  if (template.recurrence === 'daily') return targetDate
+  let candidate: string | undefined
+  if (template.recurrence === 'weekly') {
+    const dayMs = 24 * 60 * 60 * 1000
+    const elapsedDays = Math.round(
+      (Date.parse(`${targetDate}T00:00:00Z`) - Date.parse(`${template.occurrenceDate}T00:00:00Z`)) / dayMs
+    )
+    if (elapsedDays < 7) return undefined
+    candidate = shiftLocalDate(template.occurrenceDate, elapsedDays - (elapsedDays % 7))
+  } else if (template.recurrence === 'monthly') {
+    const anchorDay = Number((template.recurrenceAnchorDate ?? template.occurrenceDate).slice(8, 10))
+    const [targetYear, targetMonth] = targetDate.split('-').map(Number)
+    const dueInMonth = (year: number, month: number) => {
+      const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate()
+      return `${year}-${String(month).padStart(2, '0')}-${String(Math.min(anchorDay, lastDay)).padStart(2, '0')}`
+    }
+    candidate = dueInMonth(targetYear, targetMonth)
+    if (candidate > targetDate) {
+      candidate = targetMonth === 1 ? dueInMonth(targetYear - 1, 12) : dueInMonth(targetYear, targetMonth - 1)
+    }
   }
-  const dayMs = 24 * 60 * 60 * 1000
-  const previous = Date.parse(`${previousDate}T00:00:00Z`)
-  const target = Date.parse(`${targetDate}T00:00:00Z`)
-  const elapsedDays = Math.round((target - previous) / dayMs)
-  return recurrence === 'weekly' && elapsedDays > 0 && elapsedDays % 7 === 0
+  return candidate && candidate > template.occurrenceDate ? candidate : undefined
+}
+
+export const MAX_LIFE_AREA_LENGTH = 128
+const MAX_LIFE_AREAS = 1_000
+
+/** Splits on commas and line breaks, trims, de-duplicates and enforces the saved-state limits. */
+export function normalizeLifeAreas(values: readonly string[]): string[] {
+  const areas = values
+    .flatMap(value => value.split(/[,\r\n]/))
+    .map(area => area.replace(/\0/g, '').trim().slice(0, MAX_LIFE_AREA_LENGTH).trim())
+    .filter(area => area.length > 0)
+  return [...new Set(areas)].slice(0, MAX_LIFE_AREAS)
 }
 
 function validateTaskFocusMinutes(value?: number): number | undefined {

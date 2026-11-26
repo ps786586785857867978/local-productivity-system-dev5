@@ -43,4 +43,15 @@ describe('timer seam', () => {
       status: 'paused', activeSeconds: 30, pausedSeconds: 60, remainingSeconds: 30
     })
   })
+
+  it('never records a transition earlier than the previous one when the clock jumps back', () => {
+    let timer = startTimer({ id: 'focus-skew', kind: 'focus', plannedSeconds: 25 * 60, startedAtMs: 10 * minute })
+    timer = pauseTimer(timer, 5 * minute)
+    expect(timer.pausedSinceMs).toBe(10 * minute)
+    timer = resumeTimer(timer, 4 * minute)
+    expect(timer.runningSinceMs).toBe(10 * minute)
+    timer = completeTimer(timer, 3 * minute)
+    expect(timer.endedAtMs).toBe(10 * minute)
+    expect(timer).toMatchObject({ accumulatedActiveMs: 0, accumulatedPausedMs: 0 })
+  })
 })

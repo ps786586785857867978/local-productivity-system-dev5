@@ -39,6 +39,9 @@ const MAX_DETAILS_BYTES = 64 * 1024
 const MAX_JSON_DEPTH = 12
 const MAX_JSON_ENTRIES = 1_000
 const MAX_JSON_STRING_LENGTH = 16 * 1024
+// One entry per fully completed day; 100 years of use. The generic 1,000-entry
+// cap would otherwise start refusing every save after about three years.
+const MAX_COMPLETION_DATES = 36_600
 
 function isString(value: unknown): value is string {
   return typeof value === 'string'
@@ -223,7 +226,7 @@ function isSettings(value: unknown): boolean {
 
 function isDailyCompletionDates(value: unknown): boolean {
   if (value === undefined) return true
-  if (!Array.isArray(value) || value.length > MAX_JSON_ENTRIES) return false
+  if (!Array.isArray(value) || value.length > MAX_COMPLETION_DATES) return false
   if (!value.every(isValidLocalDate)) return false
   return value.every((date, index) => index === 0 || value[index - 1] < date)
 }

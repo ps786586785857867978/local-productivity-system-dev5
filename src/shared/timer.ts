@@ -36,35 +36,44 @@ export function startTimer(input: StartTimerInput): TimerState {
   }
 }
 
+// The wall clock can jump backwards (NTP sync, manual change). Never record a
+// transition earlier than the previous one, or the saved timer becomes invalid.
+function latestTransitionMs(timer: TimerState): number {
+  return Math.max(timer.startedAtMs, timer.runningSinceMs ?? 0, timer.pausedSinceMs ?? 0)
+}
+
 export function pauseTimer(timer: TimerState, nowMs: number): TimerState {
   if (timer.status !== 'running' || timer.runningSinceMs === undefined) return timer
+  const atMs = Math.max(nowMs, latestTransitionMs(timer))
   return {
     ...timer,
     status: 'paused',
-    accumulatedActiveMs: timer.accumulatedActiveMs + Math.max(0, nowMs - timer.runningSinceMs),
+    accumulatedActiveMs: timer.accumulatedActiveMs + (atMs - timer.runningSinceMs),
     runningSinceMs: undefined,
-    pausedSinceMs: nowMs
+    pausedSinceMs: atMs
   }
 }
 
 export function resumeTimer(timer: TimerState, nowMs: number): TimerState {
   if (timer.status !== 'paused' || timer.pausedSinceMs === undefined) return timer
+  const atMs = Math.max(nowMs, latestTransitionMs(timer))
   return {
     ...timer,
     status: 'running',
-    accumulatedPausedMs: timer.accumulatedPausedMs + Math.max(0, nowMs - timer.pausedSinceMs),
+    accumulatedPausedMs: timer.accumulatedPausedMs + (atMs - timer.pausedSinceMs),
     pausedSinceMs: undefined,
-    runningSinceMs: nowMs
+    runningSinceMs: atMs
   }
 }
 
 function endTimer(timer: TimerState, nowMs: number, status: 'completed' | 'cancelled'): TimerState {
   if (timer.status === 'completed' || timer.status === 'cancelled') return timer
+  const atMs = Math.max(nowMs, latestTransitionMs(timer))
   const activeDelta = timer.status === 'running' && timer.runningSinceMs !== undefined
-    ? Math.max(0, nowMs - timer.runningSinceMs)
+    ? atMs - timer.runningSinceMs
     : 0
   const pausedDelta = timer.status === 'paused' && timer.pausedSinceMs !== undefined
-    ? Math.max(0, nowMs - timer.pausedSinceMs)
+    ? atMs - timer.pausedSinceMs
     : 0
   const accumulatedActiveMs = timer.accumulatedActiveMs + activeDelta
   return {
@@ -76,7 +85,7 @@ function endTimer(timer: TimerState, nowMs: number, status: 'completed' | 'cance
     accumulatedPausedMs: timer.accumulatedPausedMs + pausedDelta,
     runningSinceMs: undefined,
     pausedSinceMs: undefined,
-    endedAtMs: nowMs
+    endedAtMs: atMs
   }
 }
 

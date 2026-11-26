@@ -5,6 +5,7 @@ import {
   dailyAppStreak,
   isTaskCountedOnDate,
   isTaskVisibleInView,
+  normalizeLifeAreas,
   recurringTaskStreak,
   type Priority,
   type ProductCommand,
@@ -144,6 +145,40 @@ function actualDuration(seconds: number): string {
   return remainder ? `${minutes} min ${remainder} sec` : `${minutes} min`
 }
 
+// Electron wraps IPC failures as "Error invoking remote method '<channel>': Error: <message>".
+function readableError(error: unknown): string {
+  const message = error instanceof Error ? error.message : ''
+  return message.replace(/^Error invoking remote method '[^']*':\s*(?:Error:\s*)?/, '').trim()
+}
+
+const MAX_TITLE_LENGTH = 300
+const MAX_DESCRIPTION_LENGTH = 10_000
+
+function MinutesInput({ label, value, onCommit }: { label: string; value: number; onCommit: (minutes: number) => void }) {
+  const [text, setText] = useState(String(value))
+  useEffect(() => setText(String(value)), [value])
+  const commit = () => {
+    const parsed = Number(text)
+    if (text.trim() === '' || !Number.isFinite(parsed)) {
+      setText(String(value))
+      return
+    }
+    const minutes = Math.min(180, Math.max(1, Math.round(parsed)))
+    setText(String(minutes))
+    if (minutes !== value) onCommit(minutes)
+  }
+  return <input
+    type="number"
+    min="1"
+    max="180"
+    aria-label={`${label} minutes`}
+    value={text}
+    onChange={event => setText(event.target.value)}
+    onBlur={commit}
+    onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur() }}
+  />
+}
+
 export function App() {
   const [state, setState] = useState<ProductState | null>(null)
   const [screen, setScreen] = useState<Screen>('today')
@@ -160,7 +195,9 @@ export function App() {
   const [linkedTaskId, setLinkedTaskId] = useState('')
   const [activity, setActivity] = useState('')
   const [distractionFree, setDistractionFree] = useState(false)
-  const [syncError, setSyncError] = useState('')
+  const [vaultError, setVaultError] = useState('')
+  const [saveError, setSaveError] = useState('')
+  const [formError, setFormError] = useState('')
   const [showCompletionCelebration, setShowCompletionCelebration] = useState(false)
   const [lifeAreaText, setLifeAreaText] = useState('')
   const [syncPulse, setSyncPulse] = useState(0)
@@ -194,6 +231,7 @@ export function App() {
   useEffect(() => {
     if (!state) return
     void window.gentleday.saveState(state).then(async () => {
+      setSaveError('')
       const pending = state.outbox.filter(item => !item.deliveredAt)
       if (!state.settings.vaultPath || pending.length === 0 || syncing.current) return
       syncing.current = true
@@ -208,13 +246,14 @@ export function App() {
               : item)
           } : current)
         }
-        setSyncError('')
+        setVaultError('')
       } catch (error) {
-        setSyncError(error instanceof Error ? error.message : 'Vault unavailable; events remain queued.')
+        const detail = readableError(error)
+        setVaultError(`Couldn't write to your Obsidian vault${detail ? ` (${detail})` : ''}. Events stay queued and will retry.`)
       } finally {
         syncing.current = false
       }
-    }).catch(error => setSyncError(error instanceof Error ? error.message : 'Local save failed.'))
+    }).catch(() => setSaveError("moonim couldn't save your latest change, so it may be lost when you quit. Try undoing what you just changed."))
   }, [state, syncPulse])
 
   const run = (command: ProductCommand) => {
@@ -226,7 +265,10 @@ export function App() {
 
   useEffect(() => {
     if (!state || lastEnsuredDate.current === today) return
+    const previousDay = lastEnsuredDate.current
     lastEnsuredDate.current = today
+    setTaskPeriodDate(current => current === previousDay ? today : current)
+    setCalendarMonth(current => current === previousDay.slice(0, 7) ? today.slice(0, 7) : current)
     run({ type: 'day.ensure', localDate: today })
   }, [today, state])
 
@@ -353,10 +395,10 @@ export function App() {
     if (!draft.title.trim()) return
     const focusMinutes = draft.focusMinutes === '' ? undefined : Number(draft.focusMinutes)
     if (focusMinutes !== undefined && (!Number.isInteger(focusMinutes) || focusMinutes < 1 || focusMinutes > 180)) {
-      setSyncError('Task focus duration must be between 1 and 180 minutes.')
+      setFormError('Task focus duration must be between 1 and 180 minutes.')
       return
     }
-    setSyncError('')
+    setFormError('')
     if (editingTask) {
       run({
         type: 'task.edit',
@@ -408,10 +450,10 @@ export function App() {
   const startTimer = () => {
     const validLinkedTaskId = timerKind === 'focus' && linkedTask ? linkedTask.id : undefined
     if (timerKind === 'focus' && !validLinkedTaskId && !activity.trim()) {
-      setSyncError('Choose a task or add a short focus description first.')
+      setFormError('Choose a task or add a short focus description first.')
       return
     }
-    setSyncError('')
+    setFormError('')
     run({
       type: 'timer.start',
       kind: timerKind,
@@ -442,19 +484,21 @@ export function App() {
         </nav>
         <div className="sidebar-spacer" />
         <div className="vault-status">
-          <span className={`status-dot ${state.settings.vaultPath && !syncError ? 'connected' : ''}`} />
+          <span className={`status-dot ${state.settings.vaultPath && !vaultError ? 'connected' : ''}`} />
           <div><strong>{state.settings.vaultPath ? 'Obsidian linked' : 'Vault not linked'}</strong><small>{pendingEvents} event{pendingEvents === 1 ? '' : 's'} queued</small></div>
         </div>
       </aside>
 
       <main>
+        {saveError && <div className="notice" role="alert">{saveError}</div>}
         {screen === 'today' && (
           <>
             <header className="page-header today-header">
               <button className="primary" onClick={openCreateTask}>＋ Add task</button>
             </header>
 
-            {syncError && <div className="notice" role="status">{syncError}</div>}
+            {formError && <div className="notice" role="status">{formError}</div>}
+            {vaultError && <div className="notice" role="status">{vaultError}</div>}
 
             <section className="dashboard-grid">
               <div className="task-panel card">
@@ -501,7 +545,7 @@ export function App() {
                     </div>
                     <div className="timer-orbit"><div className="timer-display">{formatDuration(plannedMinutes * 60)}</div><small>ready when you are</small></div>
                     <div className="focus-start-zone">
-                      {timerKind === 'focus' && <div className="timer-fields"><label>Link a task<select value={linkedTaskId} onChange={event => { setLinkedTaskId(event.target.value); const task = focusEligibleTasks.find(item => item.id === event.target.value); if (task) setActivity(task.title) }}><option value="">No task selected</option>{focusEligibleTasks.map(task => <option value={task.id} key={task.id}>{task.title} · {task.focusMinutes} min</option>)}</select></label>{focusEligibleTasks.length === 0 ? <p className="focus-link-help"><strong>No tasks have a focus duration yet.</strong> Open a task and choose Edit task to set one.</p> : <p className="focus-link-help">Only active tasks with a focus duration appear here.</p>}<label>Or describe your focus<input value={activity} onChange={event => setActivity(event.target.value)} placeholder="e.g. Mandarin lesson" /></label></div>}
+                      {timerKind === 'focus' && <div className="timer-fields"><label>Link a task<select value={linkedTaskId} onChange={event => { setLinkedTaskId(event.target.value); const task = focusEligibleTasks.find(item => item.id === event.target.value); if (task) setActivity(task.title) }}><option value="">No task selected</option>{focusEligibleTasks.map(task => <option value={task.id} key={task.id}>{task.title} · {task.focusMinutes} min</option>)}</select></label>{focusEligibleTasks.length === 0 ? <p className="focus-link-help"><strong>No tasks have a focus duration yet.</strong> Open a task and choose Edit task to set one.</p> : <p className="focus-link-help">Only active tasks with a focus duration appear here.</p>}<label>Or describe your focus<input maxLength={MAX_TITLE_LENGTH} value={activity} onChange={event => setActivity(event.target.value)} placeholder="e.g. Mandarin lesson" /></label></div>}
                       <button className="start-button" onClick={startTimer}>Start {timerKind === 'focus' ? 'focus' : 'break'}</button>
                     </div>
                   </>
@@ -538,8 +582,8 @@ export function App() {
             <header className="page-header"><div><p className="eyebrow">SETTINGS</p><h1>Shape moonim around you.</h1></div></header>
             <div className="settings-grid">
               <section className="card setting-card"><span className="kicker">OBSIDIAN</span><h2>Append-only activity vault</h2><p>Task, focus, and break events are stored in predictable Markdown folders. If your vault is unavailable, events stay queued locally and retry every 30 seconds.</p><div className="path-box">{state.settings.vaultPath || 'No vault selected'}</div><div className="button-row"><button className="primary" onClick={chooseVault}>{state.settings.vaultPath ? 'Change vault' : 'Choose vault'}</button>{pendingEvents > 0 && state.settings.vaultPath && <button className="secondary" onClick={() => setSyncPulse(value => value + 1)}>Retry now</button>}</div></section>
-              <section className="card setting-card"><span className="kicker">TIMER DEFAULTS</span><h2>Session lengths</h2><div className="duration-grid">{([['focusMinutes', 'Focus'], ['shortBreakMinutes', 'Short break'], ['longBreakMinutes', 'Long break']] as const).map(([key, label]) => <label key={key}>{label}<span><input type="number" min="1" max="180" value={state.settings[key]} onChange={event => run({ type: 'settings.update', changes: { [key]: Number(event.target.value) } })} /> minutes</span></label>)}</div></section>
-              <section className="card setting-card wide"><span className="kicker">LIFE AREAS</span><h2>Your editable categories</h2><p>Separate areas with commas. Existing tasks keep their current labels.</p><textarea value={lifeAreaText} onChange={event => setLifeAreaText(event.target.value)} onBlur={() => run({ type: 'settings.update', changes: { lifeAreas: lifeAreaText.split(',') } })} /><div className="tag-preview">{state.settings.lifeAreas.map(area => <span key={area}>{area}</span>)}</div></section>
+              <section className="card setting-card"><span className="kicker">TIMER DEFAULTS</span><h2>Session lengths</h2><div className="duration-grid">{([['focusMinutes', 'Focus'], ['shortBreakMinutes', 'Short break'], ['longBreakMinutes', 'Long break']] as const).map(([key, label]) => <label key={key}>{label}<span><MinutesInput label={label} value={state.settings[key]} onCommit={minutes => run({ type: 'settings.update', changes: { [key]: minutes } })} /> minutes</span></label>)}</div></section>
+              <section className="card setting-card wide"><span className="kicker">LIFE AREAS</span><h2>Your editable categories</h2><p>Separate areas with commas or new lines. Existing tasks keep their current labels.</p><textarea value={lifeAreaText} onChange={event => setLifeAreaText(event.target.value)} onBlur={() => { const areas = normalizeLifeAreas([lifeAreaText]); if (areas.length) run({ type: 'settings.update', changes: { lifeAreas: areas } }); setLifeAreaText((areas.length ? areas : state.settings.lifeAreas).join(', ')) }} /><div className="tag-preview">{state.settings.lifeAreas.map(area => <span key={area}>{area}</span>)}</div></section>
               <section className="card setting-card"><span className="kicker">APPEARANCE</span><h2>Light by default</h2><label className="switch-row"><span>Use dark theme<small>Off keeps moonim's light, warm atmosphere.</small></span><input type="checkbox" checked={(state.settings.theme ?? 'light') === 'dark'} onChange={event => run({ type: 'settings.update', changes: { theme: event.target.checked ? 'dark' : 'light' } })} /></label><label className="switch-row"><span>Show completion progress<small>No penalties after missed days.</small></span><input type="checkbox" checked={state.settings.streaksEnabled} onChange={event => run({ type: 'settings.update', changes: { streaksEnabled: event.target.checked } })} /></label><label className="switch-row"><span>Reduce motion<small>Calmer transitions throughout the app.</small></span><input type="checkbox" checked={state.settings.reducedMotion} onChange={event => run({ type: 'settings.update', changes: { reducedMotion: event.target.checked } })} /></label></section>
               <section className="card setting-card"><span className="kicker">FOCUS MODE</span><h2>Distraction-free fallback</h2><p>moonim uses an in-app quiet mode without requiring privileged macOS access.</p><button className="secondary" onClick={() => setDistractionFree(value => !value)}>{distractionFree ? 'Exit quiet mode' : 'Enter quiet mode'}</button></section>
             </div>
@@ -551,7 +595,7 @@ export function App() {
 
       {deletingTask && <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && setDeletingTask(null)}><section className="delete-dialog card" role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title"><span className="kicker">CONFIRM DELETE</span><h2 id="delete-dialog-title">Delete {deletingTask.title}?</h2><p>{deletingTask.recurrence === 'none' ? 'This removes the task from moonim. Its append-only activity record is preserved.' : 'Choose whether to remove only this occurrence or the entire recurring routine.'}</p><div className="dialog-actions delete-actions"><button type="button" className="secondary" onClick={() => setDeletingTask(null)}>Cancel</button>{deletingTask.recurrence === 'none' ? <button type="button" className="danger-button" aria-label="Confirm delete task" onClick={() => confirmDeleteTask('occurrence')}>Delete task</button> : <><button type="button" className="secondary" onClick={() => confirmDeleteTask('occurrence')}>Delete this occurrence</button><button type="button" className="danger-button" onClick={() => confirmDeleteTask('series')}>Delete whole {deletingTask.recurrence} routine</button></>}</div></section></div>}
 
-      {taskDialogOpen && <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && setTaskDialogOpen(false)}><form className="task-dialog" onSubmit={saveTask}><div className="dialog-heading"><div><span className="kicker">{editingTask ? 'EDIT TASK' : 'NEW TASK'}</span><h2>{editingTask ? 'Refine this step' : 'What matters today?'}</h2></div><button type="button" onClick={() => setTaskDialogOpen(false)}>×</button></div><label>Task title<input autoFocus value={draft.title} onChange={event => setDraft(current => ({ ...current, title: event.target.value }))} placeholder="e.g. Take morning medication" /></label><label>Description<textarea value={draft.description} onChange={event => setDraft(current => ({ ...current, description: event.target.value }))} placeholder="Add notes, context, or a definition of done." /></label><div className="form-grid"><label>Life area<select value={draft.lifeArea} onChange={event => setDraft(current => ({ ...current, lifeArea: event.target.value }))}>{state.settings.lifeAreas.map(area => <option key={area}>{area}</option>)}</select></label><label>Priority<select value={draft.priority} onChange={event => setDraft(current => ({ ...current, priority: event.target.value as TaskDraft['priority'] }))}><option value="">No priority</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label><label>Due date<input type="date" value={draft.dueDate} onChange={event => setDraft(current => ({ ...current, dueDate: event.target.value }))} /></label><label>Time<input type="time" value={draft.scheduledTime} onChange={event => setDraft(current => ({ ...current, scheduledTime: event.target.value }))} /></label><label>Focus duration (minutes)<input type="number" min="1" max="180" step="1" value={draft.focusMinutes} onChange={event => setDraft(current => ({ ...current, focusMinutes: event.target.value }))} placeholder="Optional, e.g. 30" /></label>{!editingTask && <label>Repeat<select value={draft.recurrence} onChange={event => setDraft(current => ({ ...current, recurrence: event.target.value as Recurrence }))}><option value="none">Does not repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></label>}</div><div className="dialog-actions"><button type="button" className="secondary" onClick={() => setTaskDialogOpen(false)}>Cancel</button><button className="primary" type="submit">{editingTask ? 'Save changes' : 'Create task'}</button></div></form></div>}
+      {taskDialogOpen && <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && setTaskDialogOpen(false)}><form className="task-dialog" onSubmit={saveTask}><div className="dialog-heading"><div><span className="kicker">{editingTask ? 'EDIT TASK' : 'NEW TASK'}</span><h2>{editingTask ? 'Refine this step' : 'What matters today?'}</h2></div><button type="button" onClick={() => setTaskDialogOpen(false)}>×</button></div><label>Task title<input autoFocus maxLength={MAX_TITLE_LENGTH} value={draft.title} onChange={event => setDraft(current => ({ ...current, title: event.target.value }))} placeholder="e.g. Take morning medication" /></label><label>Description<textarea maxLength={MAX_DESCRIPTION_LENGTH} value={draft.description} onChange={event => setDraft(current => ({ ...current, description: event.target.value }))} placeholder="Add notes, context, or a definition of done." /></label><div className="form-grid"><label>Life area<select value={draft.lifeArea} onChange={event => setDraft(current => ({ ...current, lifeArea: event.target.value }))}>{state.settings.lifeAreas.map(area => <option key={area}>{area}</option>)}</select></label><label>Priority<select value={draft.priority} onChange={event => setDraft(current => ({ ...current, priority: event.target.value as TaskDraft['priority'] }))}><option value="">No priority</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label><label>Due date<input type="date" value={draft.dueDate} onChange={event => setDraft(current => ({ ...current, dueDate: event.target.value }))} /></label><label>Time<input type="time" value={draft.scheduledTime} onChange={event => setDraft(current => ({ ...current, scheduledTime: event.target.value }))} /></label><label>Focus duration (minutes)<input type="number" min="1" max="180" step="1" value={draft.focusMinutes} onChange={event => setDraft(current => ({ ...current, focusMinutes: event.target.value }))} placeholder="Optional, e.g. 30" /></label>{!editingTask && <label>Repeat<select value={draft.recurrence} onChange={event => setDraft(current => ({ ...current, recurrence: event.target.value as Recurrence }))}><option value="none">Does not repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></label>}</div><div className="dialog-actions"><button type="button" className="secondary" onClick={() => setTaskDialogOpen(false)}>Cancel</button><button className="primary" type="submit">{editingTask ? 'Save changes' : 'Create task'}</button></div></form></div>}
 
       {showCompletionCelebration && <div className="celebration-backdrop" role="presentation" onClick={() => setShowCompletionCelebration(false)}><section className="celebration-card" role="dialog" aria-modal="true" aria-label="Congratulations"><img src={congratulationsImage} alt="Well done lad! Wallace and Gromit celebrate" /><h2>Well done!</h2><p>You completed everything for today.</p></section></div>}
     </div>

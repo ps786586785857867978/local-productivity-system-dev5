@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyProductCommand, createInitialState, dailyAppStreak, isTaskVisibleInView, isTaskVisibleToday, recurringTaskStreak, type Task } from './product'
+import { applyProductCommand, createInitialState, dailyAppStreak, isTaskVisibleInView, isTaskVisibleToday, normalizeLifeAreas, recurringTaskStreak, type ProductState, type Task } from './product'
 
 const context = {
   now: '2026-09-27T08:00:00.000+02:00',
@@ -552,5 +552,85 @@ describe('recurring task streak seam', () => {
     ]
 
     expect(recurringTaskStreak(monthlyTasks, 'monthly-series', '2027-04-30')).toEqual({ current: 1, best: 2 })
+  })
+})
+
+describe('audit regressions', () => {
+  const on = (localDate: string) => ({ ...context, now: `${localDate}T09:00:00.000+01:00`, localDate, offset: '+01:00' })
+  const ensure = (state: ProductState, localDate: string) =>
+    applyProductCommand(state, { type: 'day.ensure', localDate }, on(localDate))
+
+  it('catches up a weekly routine when the app was closed on its due weekday', () => {
+    let state = applyProductCommand(createInitialState(), {
+      type: 'task.create', title: 'Weekly review', dueDate: '2026-11-02', recurrence: 'weekly'
+    }, on('2026-11-02'))
+    const seriesId = state.tasks[0].seriesId
+
+    state = ensure(state, '2026-11-10')
+    state = ensure(state, '2026-11-10')
+    state = ensure(state, '2026-12-02')
+
+    expect(state.tasks.filter(task => task.seriesId === seriesId).map(task => [task.occurrenceDate, task.dueDate]))
+      .toEqual([['2026-11-02', '2026-11-02'], ['2026-11-09', '2026-11-09'], ['2026-11-30', '2026-11-30']])
+  })
+
+  it('catches up a monthly routine when the app was closed on its due day', () => {
+    let state = applyProductCommand(createInitialState(), {
+      type: 'task.create', title: 'Pay rent', dueDate: '2026-11-01', recurrence: 'monthly'
+    }, on('2026-11-01'))
+    const seriesId = state.tasks[0].seriesId
+
+    state = ensure(state, '2026-11-20')
+    state = ensure(state, '2026-12-02')
+    state = ensure(state, '2027-03-15')
+
+    expect(state.tasks.filter(task => task.seriesId === seriesId).map(task => task.occurrenceDate))
+      .toEqual(['2026-11-01', '2026-12-01', '2027-03-01'])
+  })
+
+  it('does not recreate a weekly occurrence that was deleted on its own', () => {
+    let state = applyProductCommand(createInitialState(), {
+      type: 'task.create', title: 'Weekly review', dueDate: '2026-11-02', recurrence: 'weekly'
+    }, on('2026-11-02'))
+    state = ensure(state, '2026-11-10')
+    const caughtUp = state.tasks[1]
+    state = applyProductCommand(state, { type: 'task.delete', taskId: caughtUp.id, scope: 'occurrence' }, on('2026-11-10'))
+    state = ensure(state, '2026-11-11')
+
+    expect(state.tasks.filter(task => task.status !== 'deleted').map(task => task.occurrenceDate)).toEqual(['2026-11-02'])
+  })
+
+  it('records an overdue task as completed on the day it is ticked off', () => {
+    let state = applyProductCommand(createInitialState(), {
+      type: 'task.create', title: 'Submit form', dueDate: '2026-11-20', recurrence: 'none'
+    }, on('2026-11-18'))
+    state = applyProductCommand(state, { type: 'task.complete', taskId: state.tasks[0].id }, on('2026-11-26'))
+
+    expect(state.tasks[0].completedForDate).toBe('2026-11-26')
+    expect(isTaskVisibleToday(state.tasks[0], '2026-11-26')).toBe(true)
+    expect(state.dailyCompletionDates).toEqual(['2026-11-26'])
+  })
+
+  it('keeps a daily routine streak while today\'s occurrence is still unfinished', () => {
+    const day = (date: string, status: Task['status']): Task => ({
+      id: date, seriesId: 'journal', title: 'Journal', recurrence: 'daily', occurrenceDate: date, status,
+      createdAt: context.now, updatedAt: context.now, ...(status === 'completed' ? { completedAt: context.now } : {})
+    })
+    const tasks = ['2026-11-20', '2026-11-21', '2026-11-22', '2026-11-23', '2026-11-24', '2026-11-25']
+      .map(date => day(date, 'completed'))
+      .concat(day('2026-11-26', 'active'))
+
+    expect(recurringTaskStreak(tasks, 'journal', '2026-11-26')).toEqual({ current: 6, best: 6 })
+    expect(recurringTaskStreak(tasks, 'journal', '2026-11-27')).toEqual({ current: 0, best: 6 })
+  })
+
+  it('splits life areas on commas and line breaks and keeps each within the saved limit', () => {
+    expect(normalizeLifeAreas(['Health\nWork, Home\r\n\nHealth'])).toEqual(['Health', 'Work', 'Home'])
+    expect(normalizeLifeAreas(['x'.repeat(200)])[0]).toHaveLength(128)
+
+    const state = applyProductCommand(createInitialState(), {
+      type: 'settings.update', changes: { lifeAreas: ['Health\nWork'] }
+    }, context)
+    expect(state.settings.lifeAreas).toEqual(['Health', 'Work'])
   })
 })
