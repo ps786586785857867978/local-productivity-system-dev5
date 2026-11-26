@@ -83,6 +83,16 @@ export interface AppSettings {
   vaultPath?: string
 }
 
+export interface DiaryEntry {
+  id: string
+  localDate: string
+  text: string
+  createdAt: string
+  updatedAt: string
+}
+
+export const MAX_DIARY_TEXT_LENGTH = 10_000
+
 export interface ProductState {
   version: 1
   tasks: Task[]
@@ -91,6 +101,8 @@ export interface ProductState {
   outbox: LogEvent[]
   deletedSeriesIds: string[]
   dailyCompletionDates?: string[]
+  /** One written entry per day, oldest first. */
+  diaryEntries?: DiaryEntry[]
   settings: AppSettings
 }
 
@@ -284,6 +296,7 @@ export type ProductCommand =
   | { type: 'task.reopen'; taskId: string }
   | { type: 'task.delete'; taskId: string; scope: 'occurrence' | 'series' }
   | { type: 'task.history.clear' }
+  | { type: 'diary.save'; localDate: string; text: string }
   | { type: 'day.ensure'; localDate: string }
   | {
       type: 'timer.start'
@@ -348,6 +361,7 @@ function clone(state: ProductState): ProductState {
     outbox: state.outbox.map(item => ({ ...item, details: { ...item.details } })),
     deletedSeriesIds: [...state.deletedSeriesIds],
     dailyCompletionDates: [...(state.dailyCompletionDates ?? [])],
+    diaryEntries: (state.diaryEntries ?? []).map(entry => ({ ...entry })),
     settings: { ...state.settings, lifeAreas: [...state.settings.lifeAreas] }
   }
 }
@@ -571,6 +585,22 @@ export function applyProductCommand(
       focusMinutes: clampMinutes(command.changes.focusMinutes ?? state.settings.focusMinutes),
       shortBreakMinutes: clampMinutes(command.changes.shortBreakMinutes ?? state.settings.shortBreakMinutes),
       longBreakMinutes: clampMinutes(command.changes.longBreakMinutes ?? state.settings.longBreakMinutes)
+    }
+    return state
+  }
+
+  if (command.type === 'diary.save') {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(command.localDate)) throw new Error('Invalid diary date')
+    const text = command.text.replace(/\0/g, '').trim().slice(0, MAX_DIARY_TEXT_LENGTH)
+    const entries = state.diaryEntries ?? []
+    const existing = entries.find(entry => entry.localDate === command.localDate)
+    if (!text) {
+      state.diaryEntries = entries.filter(entry => entry !== existing)
+    } else if (existing) {
+      if (existing.text !== text) Object.assign(existing, { text, updatedAt: context.now })
+    } else {
+      state.diaryEntries = [...entries, { id: context.id(), localDate: command.localDate, text, createdAt: context.now, updatedAt: context.now }]
+        .sort((left, right) => left.localDate.localeCompare(right.localDate))
     }
     return state
   }

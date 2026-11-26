@@ -699,5 +699,17 @@ describe('audit regressions', () => {
     expect(state.outbox.filter(item => item.eventType === 'task_deleted')).toHaveLength(2)
     expect(recurringTaskStreak(state.tasks, seriesId, '2026-11-23').current).toBe(0)
   })
+
+  it('saves one diary entry per day, edits it in place and removes it when emptied', () => {
+    let state = applyProductCommand(createInitialState(), { type: 'diary.save', localDate: '2026-11-26', text: '  Walked by the river.  ' }, on('2026-11-26'))
+    state = applyProductCommand(state, { type: 'diary.save', localDate: '2026-11-24', text: 'Rainy day.' }, on('2026-11-26'))
+    state = applyProductCommand(state, { type: 'diary.save', localDate: '2026-11-26', text: 'Walked by the river, then tea.' }, on('2026-11-26'))
+
+    expect(state.diaryEntries?.map(entry => [entry.localDate, entry.text])).toEqual([
+      ['2026-11-24', 'Rainy day.'], ['2026-11-26', 'Walked by the river, then tea.']
+    ])
+    state = applyProductCommand(state, { type: 'diary.save', localDate: '2026-11-24', text: '   ' }, on('2026-11-26'))
+    expect(state.diaryEntries?.map(entry => entry.localDate)).toEqual(['2026-11-26'])
+  })
 })
 

@@ -6,12 +6,14 @@ import {
   isTaskCountedOnDate,
   isTaskVisibleInView,
   isUpcomingPreview,
+  MAX_DIARY_TEXT_LENGTH,
   normalizeLifeAreas,
   recurringTaskStreak,
   type Priority,
   type ProductCommand,
   type ProductState,
   type Recurrence,
+  type FocusSession,
   type Task,
   type TaskListView,
   upcomingOccurrences
@@ -20,9 +22,21 @@ import { readTimer, type TimerKind } from '../../shared/timer'
 import gromitEmpty from './assets/gromit-empty.png'
 import gromitIcon from './assets/gromit-icon.png'
 import gromitScene from './assets/gromit.jpg'
+// Freely licensed photos of Aardman models from Wikimedia Commons; credits are listed in Settings.
+import closeShaveModels from './assets/close-shave-models.jpg'
+import wallaceGromitModels from './assets/wallace-gromit-models.jpg'
+import shaunTheSheep from './assets/shaun-the-sheep.jpg'
+
+const DIARY_PHOTOS = [gromitScene, closeShaveModels, wallaceGromitModels]
+
+const PHOTO_CREDITS = [
+  ['Wallace & Gromit models', 'Humbledaisy', 'CC BY-SA 4.0'],
+  ['A Close Shave models', 'Chemical Engineer', 'CC BY-SA 4.0'],
+  ['Shaun the Sheep at Skånes Djurpark', 'Kigsz', 'CC BY-SA 4.0']
+] as const
 import congratulationsImage from './assets/congratulations.jpeg'
 
-type Screen = 'today' | 'history' | 'settings'
+type Screen = 'today' | 'diary' | 'history' | 'settings'
 type TaskDraft = {
   title: string
   description: string
@@ -255,6 +269,112 @@ function periodStart(date: string, view: TaskListView): string {
     return shiftDate(date, -((day + 6) % 7))
   }
   return `${date.slice(0, 7)}-01`
+}
+
+
+const DIARY_DAYS_PER_PAGE = 8
+
+function longDate(value: string): string {
+  return new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    .format(new Date(`${value}T12:00:00`))
+}
+
+function shortDate(value: string): string {
+  return new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
+    .format(new Date(`${value}T12:00:00`))
+}
+
+/** A memory book: every day with something done or written, and a page to write about it. */
+function DiaryBook({ state, today, onSave }: {
+  state: ProductState
+  today: string
+  onSave: (localDate: string, text: string) => void
+}) {
+  const [tab, setTab] = useState<'days' | 'written'>('days')
+  const [page, setPage] = useState(0)
+  const [selected, setSelected] = useState(today)
+  const entries = state.diaryEntries ?? []
+  const entryFor = (date: string) => entries.find(entry => entry.localDate === date)
+
+  const days = useMemo(() => {
+    const done = new Map<string, Task[]>()
+    for (const task of state.tasks) {
+      if (task.status !== 'completed') continue
+      const date = taskDate(task)
+      done.set(date, [...(done.get(date) ?? []), task])
+    }
+    const focus = new Map<string, FocusSession[]>()
+    for (const session of state.sessions) {
+      if (session.kind !== 'focus' || session.status !== 'completed') continue
+      const date = session.localDate ?? session.startedAt.slice(0, 10)
+      focus.set(date, [...(focus.get(date) ?? []), session])
+    }
+    const dates = new Set<string>([today, ...done.keys(), ...focus.keys(), ...entries.map(entry => entry.localDate)])
+    return [...dates].sort().reverse().map(date => ({ date, done: done.get(date) ?? [], focus: focus.get(date) ?? [] }))
+  }, [state.tasks, state.sessions, entries, today])
+
+  const listed = tab === 'written' ? days.filter(day => entryFor(day.date)) : days
+  const pageCount = Math.max(1, Math.ceil(listed.length / DIARY_DAYS_PER_PAGE))
+  const currentPage = Math.min(page, pageCount - 1)
+  const visibleDays = listed.slice(currentPage * DIARY_DAYS_PER_PAGE, (currentPage + 1) * DIARY_DAYS_PER_PAGE)
+  const day = days.find(item => item.date === selected) ?? days[0]
+  const focusMinutes = Math.round(day.focus.reduce((total, session) => total + session.activeSeconds, 0) / 60)
+
+  const [draft, setDraft] = useState(entryFor(day.date)?.text ?? '')
+  useEffect(() => setDraft(entryFor(day.date)?.text ?? ''), [day.date, entryFor(day.date)?.text])
+  const save = () => { if (draft.trim() !== (entryFor(day.date)?.text ?? '')) onSave(day.date, draft) }
+
+  const summary = (item: typeof days[number]) => {
+    const parts = [
+      item.done.length ? `${item.done.length} done` : '',
+      item.focus.length ? `${Math.round(item.focus.reduce((total, session) => total + session.activeSeconds, 0) / 60)} min focus` : '',
+      entryFor(item.date) ? 'written' : ''
+    ].filter(Boolean)
+    return parts.length ? parts.join(', ') : 'A blank page'
+  }
+
+  return <section className="diary" aria-label="Diary">
+    <div className="diary-tabs" role="tablist" aria-label="Which days to show">
+      <button role="tab" aria-selected={tab === 'days'} className={tab === 'days' ? 'active' : ''} onClick={() => { setTab('days'); setPage(0) }}>Every day</button>
+      <button role="tab" aria-selected={tab === 'written'} className={tab === 'written' ? 'active' : ''} onClick={() => { setTab('written'); setPage(0) }}>Written pages</button>
+    </div>
+    <div className="diary-book">
+      <div className="diary-page diary-index">
+        <h2>Days</h2>
+        {visibleDays.length === 0
+          ? <div className="diary-empty-state"><img src={shaunTheSheep} alt="" /><p className="diary-empty">Nothing written yet. Pick a day under Every day and write a few lines about it.</p></div>
+          : <ol className="diary-days">{visibleDays.map(item => <li key={item.date}>
+            <button className={item.date === day.date ? 'active' : ''} aria-current={item.date === day.date ? 'date' : undefined} onClick={() => { save(); setSelected(item.date) }}>
+              <strong>{item.date === today ? 'Today' : shortDate(item.date)}</strong>
+              <span>{summary(item)}</span>
+            </button>
+          </li>)}</ol>}
+        <div className="diary-pager">
+          <button aria-label="Previous page of days" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>‹</button>
+          <span>Page {currentPage + 1} of {pageCount}</span>
+          <button aria-label="Next page of days" disabled={currentPage >= pageCount - 1} onClick={() => setPage(currentPage + 1)}>›</button>
+        </div>
+      </div>
+      <div className="diary-page diary-entry">
+        <figure className="diary-photo"><img src={DIARY_PHOTOS[Number(day.date.slice(8, 10)) % DIARY_PHOTOS.length]} alt="" /></figure>
+        <p className="diary-date">{day.date === today ? 'Today' : shortDate(day.date)}</p>
+        <h2>{longDate(day.date)}</h2>
+        <div className="diary-memories">
+          <h3>What happened</h3>
+          {day.done.length === 0 && day.focus.length === 0
+            ? <p className="diary-empty">No finished tasks or focus sessions on this day.</p>
+            : <ul>
+              {day.done.map(task => <li key={task.id}><span aria-hidden="true">✓</span>{task.title}</li>)}
+              {day.focus.length > 0 && <li><span aria-hidden="true">◷</span>{focusMinutes} minutes of focus over {day.focus.length} {day.focus.length === 1 ? 'session' : 'sessions'}</li>}
+            </ul>}
+        </div>
+        <label className="diary-writing">Write about the day
+          <textarea maxLength={MAX_DIARY_TEXT_LENGTH} value={draft} onChange={event => setDraft(event.target.value)} onBlur={save} placeholder="What made today good? What do you want to remember?" />
+        </label>
+        <p className="diary-hint">Saved when you click away.</p>
+      </div>
+    </div>
+  </section>
 }
 
 export function App() {
@@ -630,6 +750,7 @@ export function App() {
         <div className="brand"><img className="brand-mark" src={gromitIcon} alt="" /><strong>moonim</strong></div>
         <nav aria-label="Main navigation">
           <button className={screen === 'today' ? 'active' : ''} aria-current={screen === 'today' ? 'page' : undefined} onClick={() => setScreen('today')}><span aria-hidden="true">◌</span>Today</button>
+          <button className={screen === 'diary' ? 'active' : ''} aria-current={screen === 'diary' ? 'page' : undefined} onClick={() => setScreen('diary')}><span aria-hidden="true">❦</span>Diary</button>
           <button className={screen === 'history' ? 'active' : ''} aria-current={screen === 'history' ? 'page' : undefined} onClick={() => setScreen('history')}><span aria-hidden="true">↗</span>History</button>
           <button className={screen === 'settings' ? 'active' : ''} aria-current={screen === 'settings' ? 'page' : undefined} onClick={() => setScreen('settings')}><span aria-hidden="true">⚙</span>Settings</button>
         </nav>
@@ -727,6 +848,13 @@ export function App() {
           </>
         )}
 
+        {screen === 'diary' && (
+          <section className="page-stack">
+            <header className="page-header"><div><p className="eyebrow">DIARY</p><h1>Your memory book.</h1></div></header>
+            <DiaryBook state={state} today={today} onSave={(localDate, text) => run({ type: 'diary.save', localDate, text })} />
+          </section>
+        )}
+
         {screen === 'history' && (
           <section className="page-stack">
             <header className="page-header"><div><p className="eyebrow">LOCAL HISTORY</p><h1>A record of your progress.</h1></div></header>
@@ -745,6 +873,7 @@ export function App() {
               <section className="card setting-card wide"><span className="kicker">LIFE AREAS</span><h2>Your editable categories</h2><p>Separate areas with commas or new lines. Existing tasks keep their current labels.</p><textarea value={lifeAreaText} onChange={event => setLifeAreaText(event.target.value)} onBlur={() => { const areas = normalizeLifeAreas([lifeAreaText]); if (areas.length) run({ type: 'settings.update', changes: { lifeAreas: areas } }); setLifeAreaText((areas.length ? areas : state.settings.lifeAreas).join(', ')) }} /><div className="tag-preview">{state.settings.lifeAreas.map(area => <span key={area}>{area}</span>)}</div></section>
               <section className="card setting-card"><span className="kicker">APPEARANCE</span><h2>Light by default</h2><label className="switch-row"><span>Use dark theme<small>Off keeps moonim's light, warm atmosphere.</small></span><input type="checkbox" checked={(state.settings.theme ?? 'light') === 'dark'} onChange={event => run({ type: 'settings.update', changes: { theme: event.target.checked ? 'dark' : 'light' } })} /></label><label className="switch-row"><span>Show completion progress<small>No penalties after missed days.</small></span><input type="checkbox" checked={state.settings.streaksEnabled} onChange={event => run({ type: 'settings.update', changes: { streaksEnabled: event.target.checked } })} /></label><label className="switch-row"><span>Reduce motion<small>Calmer transitions throughout the app.</small></span><input type="checkbox" checked={state.settings.reducedMotion} onChange={event => run({ type: 'settings.update', changes: { reducedMotion: event.target.checked } })} /></label></section>
               <section className="card setting-card"><span className="kicker">FOCUS MODE</span><h2>Distraction-free fallback</h2><p>moonim uses an in-app quiet mode without requiring privileged macOS access.</p><button className="secondary" onClick={() => setDistractionFree(value => !value)}>{distractionFree ? 'Exit quiet mode' : 'Enter quiet mode'}</button></section>
+              <section className="card setting-card wide"><span className="kicker">PHOTO CREDITS</span><h2>Aardman models, photographed by visitors</h2><p>The Diary photos come from Wikimedia Commons. Wallace, Gromit and Shaun the Sheep belong to Aardman Animations.</p><ul className="credit-list">{PHOTO_CREDITS.map(([subject, author, licence]) => <li key={subject}><strong>{subject}</strong><span>{author}, {licence}</span></li>)}</ul></section>
             </div>
           </section>
         )}

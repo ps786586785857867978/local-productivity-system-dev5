@@ -547,5 +547,29 @@ describe('moonim renderer layout and theme', () => {
     expect(confirmSpy).not.toHaveBeenCalled()
     confirmSpy.mockRestore()
   })
+
+  it('writes a diary page for today and lists finished work for the day', async () => {
+    const user = userEvent.setup()
+    const now = new Date()
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    loadedState = createInitialState()
+    loadedState.tasks = [{
+      id: 'done-today', title: 'Water the tomatoes', recurrence: 'none', occurrenceDate: today, status: 'completed',
+      completedForDate: today, completedAt: now.toISOString(), createdAt: now.toISOString(), updatedAt: now.toISOString()
+    }]
+    render(<App />)
+    await screen.findByRole('combobox', { name: /show tasks for/i })
+    await user.click(screen.getByRole('button', { name: /diary/i }))
+
+    expect(screen.getByText('Water the tomatoes')).not.toBeNull()
+    await user.type(screen.getByRole('textbox', { name: /write about the day/i }), 'Sunny, and the tomatoes are nearly ripe.')
+    await user.tab()
+
+    await waitFor(() => expect(saveState).toHaveBeenLastCalledWith(expect.objectContaining({
+      diaryEntries: [expect.objectContaining({ localDate: today, text: 'Sunny, and the tomatoes are nearly ripe.' })]
+    })))
+    await user.click(screen.getByRole('tab', { name: /written pages/i }))
+    expect(screen.getByRole('button', { name: /today.*written/i })).not.toBeNull()
+  })
 })
 

@@ -452,5 +452,12 @@ describe('saves that previously failed validation', () => {
       expect(isProductState(state)).toBe(true)
     }
   })
+
+  it('accepts saved diary entries and rejects malformed ones', () => {
+    const state = applyProductCommand(createInitialState(), { type: 'diary.save', localDate: '2026-11-26', text: 'A good day.' }, context)
+    expect(isProductState(state)).toBe(true)
+    expect(isProductState({ ...state, diaryEntries: [{ ...state.diaryEntries![0], text: '' }] })).toBe(false)
+    expect(isProductState({ ...state, diaryEntries: [state.diaryEntries![0], state.diaryEntries![0]] })).toBe(false)
+  })
 })
 

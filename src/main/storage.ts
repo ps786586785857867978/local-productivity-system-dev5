@@ -12,7 +12,7 @@ import {
 } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, sep } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import type { LogEvent, ProductState } from '../shared/product'
+import { MAX_DIARY_TEXT_LENGTH, type LogEvent, type ProductState } from '../shared/product'
 import { formatMarkdownEvent, vaultRelativePath } from '../shared/vault'
 
 const EVENT_TYPES = new Set<LogEvent['eventType']>([
@@ -224,6 +224,18 @@ function isSettings(value: unknown): boolean {
     (value.vaultPath === undefined || isSingleLine(value.vaultPath, 4096))
 }
 
+function isDiaryEntries(value: unknown): boolean {
+  if (value === undefined) return true
+  if (!Array.isArray(value) || value.length > MAX_COMPLETION_DATES) return false
+  const valid = value.every(entry => isRecord(entry) &&
+    isSingleLine(entry.id, MAX_ID_LENGTH) &&
+    isValidLocalDate(entry.localDate) &&
+    isBoundedString(entry.text, MAX_DIARY_TEXT_LENGTH) && entry.text.length > 0 &&
+    isIsoTimestamp(entry.createdAt) &&
+    isIsoTimestamp(entry.updatedAt))
+  return valid && value.every((entry, index) => index === 0 || value[index - 1].localDate < entry.localDate)
+}
+
 function isDailyCompletionDates(value: unknown): boolean {
   if (value === undefined) return true
   if (!Array.isArray(value) || value.length > MAX_COMPLETION_DATES) return false
@@ -240,6 +252,7 @@ export function isProductState(value: unknown): value is ProductState {
     Array.isArray(value.outbox) && value.outbox.every(isLogEvent) &&
     Array.isArray(value.deletedSeriesIds) && value.deletedSeriesIds.every(id => isSingleLine(id, MAX_ID_LENGTH)) &&
     isDailyCompletionDates(value.dailyCompletionDates) &&
+    isDiaryEntries(value.diaryEntries) &&
     isSettings(value.settings)
 }
 
