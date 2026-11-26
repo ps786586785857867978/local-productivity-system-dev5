@@ -459,4 +459,22 @@ describe('moonim renderer layout and theme', () => {
       vi.useRealTimers()
     }
   })
+
+  it('jumps back to the current period when the task view changes', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    const selector = await screen.findByRole('combobox', { name: /show tasks for/i })
+    const period = () => document.querySelector('.task-period-controls span')?.textContent
+    const todayLabel = period()
+
+    for (let step = 0; step < 3; step += 1) await user.click(screen.getByRole('button', { name: /next day/i }))
+    expect(period()).not.toBe(todayLabel)
+
+    await user.selectOptions(selector, 'month')
+    expect(period()).toBe(new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(new Date()))
+    await user.click(screen.getByRole('button', { name: /next month/i }))
+    await user.selectOptions(selector, 'today')
+    expect(period()).toBe(todayLabel)
+  })
 })
+
